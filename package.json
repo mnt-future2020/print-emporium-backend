@@ -1,9 +1,10 @@
 {
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
+
   "dependencies": {
     "@sparticuz/chromium": "^143.0.4",
     "better-auth": "^1.4.10",

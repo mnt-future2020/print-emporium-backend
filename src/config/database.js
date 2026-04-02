@@ -9,6 +9,8 @@ export const connectDB = async () => {
     console.log(`📦 Database: ${conn.connection.name}`);
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    process.exit(1);
+    console.error("⚠️ Server will remain running, but database-dependent features will fail.");
+    // No more process.exit(1) to prevent 503 crashes on Hostinger
   }
 };
+

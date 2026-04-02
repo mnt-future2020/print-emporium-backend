@@ -89,6 +89,18 @@ app.post("/", (req, res) => {
   res.status(200).json({ message: "PrintEmporium API - Use /api/* endpoints" });
 });
 
+// 💓 Health Check Endpoint (Vital for Hostinger diagnostics)
+app.get("/health", (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? "Connected" : "Disconnected";
+  res.status(200).json({
+    status: "alive",
+    message: "Server is running on Hostinger",
+    database: dbStatus,
+    timestamp: new Date().toISOString()
+  });
+});
+
+
 // Start server
 const startServer = async () => {
   try {
