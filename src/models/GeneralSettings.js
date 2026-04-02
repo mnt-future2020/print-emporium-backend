@@ -152,7 +152,7 @@ const generalSettingsSchema = new mongoose.Schema(
   },
 );
 
-// Ensure only one settings document exists
-generalSettingsSchema.index({ settingsId: 1 }, { unique: true });
+// indexing is handled by 'unique: true' in settingsId field
+
 
 export default mongoose.model("GeneralSettings", generalSettingsSchema);

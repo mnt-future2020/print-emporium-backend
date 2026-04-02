@@ -167,17 +167,35 @@ const startServer = async () => {
       }
     });
 
+    // 💓 Health Check Endpoint (Vital for Hostinger diagnostics)
+    app.get("/health", (req, res) => {
+      const dbStatus = mongoose.connection.readyState === 1 ? "Connected" : "Disconnected";
+      res.status(200).json({
+        status: "alive",
+        message: "Server is running on Hostinger",
+        database: dbStatus,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Handle favicon.ico to stop 404s in logs
+    app.get("/favicon.ico", (req, res) => res.status(204).end());
+
     // Start listening
     app.listen(PORT, () => {
+      const baseURL = process.env.BETTER_AUTH_URL || `http://localhost:${PORT}`;
+      const displayURL = baseURL.replace(/\/api\/auth$/, "");
+
       console.log(`\n🚀 Server running on port ${PORT}`);
-      console.log(`📍 API: http://localhost:${PORT}`);
-      console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
+      console.log(`📍 API: ${displayURL}`);
+      console.log(`🔐 Auth: ${baseURL.includes("/api/auth") ? baseURL : `${baseURL}/api/auth`}`);
       console.log(`\n✨ Ready to accept requests!\n`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
+    console.error("❌ Failed to start server:", error);
+    // Keep process alive so logs can be read on Hostinger
   }
 };
+
 
 startServer();

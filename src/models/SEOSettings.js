@@ -36,7 +36,7 @@ const seoSettingsSchema = new mongoose.Schema(
   }
 );
 
-// Index for faster lookups
-seoSettingsSchema.index({ pageName: 1 });
+// indexing is handled by 'unique: true' in pageName field
+
 
 export default mongoose.model("SEOSettings", seoSettingsSchema);
