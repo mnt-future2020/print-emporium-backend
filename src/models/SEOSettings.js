@@ -37,6 +37,5 @@ const seoSettingsSchema = new mongoose.Schema(
 );
 
 // Index for faster lookups
-seoSettingsSchema.index({ pageName: 1 });
 
 export default mongoose.model("SEOSettings", seoSettingsSchema);

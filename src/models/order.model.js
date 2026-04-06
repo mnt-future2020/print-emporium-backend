@@ -165,7 +165,6 @@ const orderSchema = new mongoose.Schema(
 
 // Index for faster queries
 orderSchema.index({ userId: 1, createdAt: -1 });
-orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ status: 1 });
 
 const Order = mongoose.model("Order", orderSchema);

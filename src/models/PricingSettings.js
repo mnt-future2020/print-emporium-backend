@@ -58,6 +58,5 @@ const pricingSettingsSchema = new mongoose.Schema(
 );
 
 // Ensure only one settings document exists
-pricingSettingsSchema.index({ settingsId: 1 }, { unique: true });
 
 export default mongoose.model("PricingSettings", pricingSettingsSchema);
