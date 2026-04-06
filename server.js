@@ -93,7 +93,8 @@ app.post("/", (req, res) => {
 // Start server
 const startServer = async () => {
   // 1. Immediately start listening to prevent 503 timeouts on Cloud Hosting
-  const server = app.listen(PORT, () => {
+  // Explicitly binding to 0.0.0.0 prevents IPv4/IPv6 loopback mismatch with Hostinger's reverse proxy
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n🚀 Server running on port ${PORT}`);
     console.log(`📍 API: http://localhost:${PORT}`);
     console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
