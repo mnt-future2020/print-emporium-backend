@@ -92,23 +92,24 @@ app.post("/", (req, res) => {
 
 // Start server
 const startServer = async () => {
+  // 1. Immediately start listening to prevent 503 timeouts on Cloud Hosting
+  const server = app.listen(PORT, () => {
+    console.log(`\n🚀 Server running on port ${PORT}`);
+    console.log(`📍 API: http://localhost:${PORT}`);
+    console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
+    console.log(`\n✨ Ready to accept requests!\n`);
+  });
+
   try {
-    // Connect to database
+    // 2. Connect to database
     await connectDB();
 
-    // Initialize Better Auth after database connection
+    // 3. Initialize Better Auth after database connection
     const auth = initAuth();
     console.log("✅ Better Auth initialized");
 
-    // Seed admin user
+    // 4. Seed admin user
     await seedAdmin();
-
-    // // Seed default data
-    // const { seedData } = await import("./src/utils/seedData.js");
-    // await seedData();
-
-    // // Seed example orders for dashboard if needed
-    // await seedOrders(20);
 
     // Better Auth API Handler (MUST be before express.json())
     app.use("/api/auth", toNodeHandler(auth));
@@ -156,16 +157,10 @@ const startServer = async () => {
       }
     });
 
-    // Start listening
-    app.listen(PORT, () => {
-      console.log(`\n🚀 Server running on port ${PORT}`);
-      console.log(`📍 API: http://localhost:${PORT}`);
-      console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
-      console.log(`\n✨ Ready to accept requests!\n`);
-    });
   } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
+    console.error("❌ Failed to initialize core services (DB/Auth/Seed):", error.message);
+    console.warn("⚠️ Server is running but some features may not work until the error is resolved.");
+    // DO NOT add process.exit(1) here as it will kill the process and cause 503 errors.
   }
 };
 
