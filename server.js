@@ -38,6 +38,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   "https://print-emporium.vercel.app",
+  "https://theprintemporium.in",
 ].filter(Boolean); // Remove undefined values
 
 app.use(
