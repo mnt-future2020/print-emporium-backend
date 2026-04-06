@@ -32,8 +32,7 @@ app.set("trust proxy", 1);
 
 const PORT = process.env.PORT || 5000;
 
-
-// ✅ CORS CONFIG
+// ✅ CORS
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   "http://localhost:3000",
@@ -46,16 +45,6 @@ app.use(
   cors({
     origin: allowedOrigins.length ? allowedOrigins : "*",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "Cookie",
-      "X-Requested-With",
-      "x-signature",
-      "x-timestamp",
-    ],
-    exposedHeaders: ["Set-Cookie"],
   })
 );
 
@@ -64,94 +53,91 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
     const duration = Date.now() - start;
-    const statusColor =
-      res.statusCode >= 500 ? "🔴" : res.statusCode >= 400 ? "🟡" : "🟢";
-    console.log(
-      `${statusColor} ${res.statusCode} ${req.method} ${req.originalUrl} - ${duration}ms`
-    );
+    console.log(`${res.statusCode} ${req.method} ${req.originalUrl} - ${duration}ms`);
   });
   next();
 });
 
 app.use(cookieParser());
 
-
-// ✅ HEALTH CHECK (IMPORTANT)
+// ✅ BASIC ROUTES (ALWAYS AVAILABLE)
 app.get("/", (req, res) => {
   res.send("PrintEmporium Backend is running");
 });
 
 app.post("/", (req, res) => {
-  res.status(200).json({ message: "Use /api endpoints" });
+  res.json({ message: "Use /api endpoints" });
 });
 
+// ✅ BODY PARSER
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
-// 🚀 START SERVER FUNCTION
-const startServer = async () => {
+// 🚀 START SERVER IMMEDIATELY (Fix 504)
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
+// 🚀 BACKGROUND INITIALIZATION
+let authInstance = null;
+
+(async () => {
   try {
     console.log("🔄 Connecting to DB...");
     await connectDB();
     console.log("✅ Database connected");
 
     console.log("🔄 Initializing Auth...");
-    const auth = initAuth();
+    authInstance = initAuth();
     console.log("✅ Auth initialized");
 
     console.log("🔄 Seeding Admin...");
     await seedAdmin();
     console.log("✅ Admin ready");
 
-    // ✅ AUTH HANDLER FIRST
-    app.use("/api/auth", toNodeHandler(auth));
+    // ✅ Auth handler
+    app.use("/api/auth", toNodeHandler(authInstance));
 
-    // ✅ BODY PARSERS
-    app.use(express.json({ limit: "10mb" }));
-    app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-    // ✅ ROUTES
-    app.use("/api/auth", authRoutes);
-    app.use("/api/settings", requireAdminOrSignedRequest, settingsRoutes);
-    app.use("/api", paymentPublicRouter);
-    app.use("/api", paymentUserRouter);
-    app.use("/api/seo", requireAdminOrSignedRequest, seoRoutes);
-    app.use("/api/services", requireAdminOrSignedRequest, serviceRoutes);
-    app.use("/api/service-options", requireAdminOrSignedRequest, serviceOptionRoutes);
-    app.use("/api/hero-slides", requireAdminOrSignedRequest, heroSlideRoutes);
-    app.use("/api/file-conversion", fileConversionRoutes);
-    app.use("/api/orders", orderRoutes);
-    app.use("/api/employees", employeeRoutes);
-    app.use("/api/customers", requireAdminOrSignedRequest, customerRoutes);
-    app.use("/api/leads", leadRoutes);
-    app.use("/api/coupons", couponRoutes);
-    app.use("/api/pdf", requireAdminOrSignedRequest, pdfRoutes);
-
-    // ✅ SESSION TEST ROUTE
-    app.get("/api/me", async (req, res) => {
-      try {
-        const session = await auth.api.getSession({
-          headers: fromNodeHeaders(req.headers),
-        });
-
-        if (!session) {
-          return res.status(401).json({ error: "Not authenticated" });
-        }
-
-        return res.json(session);
-      } catch (error) {
-        console.error("Session error:", error);
-        return res.status(500).json({ error: "Internal server error" });
-      }
-    });
-
-    // ✅ START SERVER LAST (VERY IMPORTANT)
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`\n🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Ready for requests\n`);
-    });
-
-  } catch (error) {
-    console.error("❌ Startup error:", error);
+  } catch (err) {
+    console.error("❌ Background init error:", err);
   }
-};
+})();
 
-startServer();
+// ✅ ROUTES (SAFE TO LOAD IMMEDIATELY)
+app.use("/api/auth", authRoutes);
+app.use("/api/settings", requireAdminOrSignedRequest, settingsRoutes);
+app.use("/api", paymentPublicRouter);
+app.use("/api", paymentUserRouter);
+app.use("/api/seo", requireAdminOrSignedRequest, seoRoutes);
+app.use("/api/services", requireAdminOrSignedRequest, serviceRoutes);
+app.use("/api/service-options", requireAdminOrSignedRequest, serviceOptionRoutes);
+app.use("/api/hero-slides", requireAdminOrSignedRequest, heroSlideRoutes);
+app.use("/api/file-conversion", fileConversionRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/employees", employeeRoutes);
+app.use("/api/customers", requireAdminOrSignedRequest, customerRoutes);
+app.use("/api/leads", leadRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/pdf", requireAdminOrSignedRequest, pdfRoutes);
+
+// ✅ SESSION ROUTE (SAFE CHECK)
+app.get("/api/me", async (req, res) => {
+  try {
+    if (!authInstance) {
+      return res.status(503).json({ error: "Auth not ready" });
+    }
+
+    const session = await authInstance.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (!session) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    return res.json(session);
+  } catch (error) {
+    console.error("Session error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
