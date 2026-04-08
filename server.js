@@ -1,6 +1,6 @@
+import "./src/config/env.js"; // Load env vars BEFORE any other imports
 import express from "express"; // Force restart
 import cors from "cors";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 
@@ -25,8 +25,6 @@ import pdfRoutes from "./src/routes/pdf.routes.js";
 import { requireAdminOrSignedRequest } from "./src/middleware/signature.middleware.js";
 import { seedAdmin } from "./src/utils/seedAdmin.js";
 // import { seedOrders } from "./src/utils/seedOrders.js";
-
-dotenv.config();
 
 const app = express();
 app.set("trust proxy", 1); // Enable trust proxy for secure cookies behind load balancers

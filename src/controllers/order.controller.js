@@ -302,11 +302,18 @@ export const getUserOrders = async (req, res) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, page = 1, limit = 10, search } = req.query;
 
     const query = { userId };
     if (status) {
       query.status = status;
+    }
+    if (search) {
+      query.$or = [
+        { orderNumber: { $regex: search, $options: "i" } },
+        { "deliveryInfo.fullName": { $regex: search, $options: "i" } },
+        { "deliveryInfo.phone": { $regex: search, $options: "i" } },
+      ];
     }
 
     const orders = await Order.find(query)

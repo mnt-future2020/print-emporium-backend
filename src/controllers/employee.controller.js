@@ -225,13 +225,21 @@ export const createEmployee = async (req, res) => {
     // Create employee user via Better Auth so credentials are properly stored
     const auth = getAuth();
     const tempPassword = crypto.randomBytes(32).toString("hex"); // Temporary password, will be replaced during verification
-    await auth.api.signUpEmail({
-      body: {
-        name,
-        email,
-        password: tempPassword,
-      },
-    });
+    try {
+      await auth.api.signUpEmail({
+        body: {
+          name,
+          email,
+          password: tempPassword,
+        },
+      });
+    } catch (authError) {
+      console.error("Better Auth signUp error:", authError);
+      return res.status(400).json({
+        success: false,
+        message: "User with this email already exists",
+      });
+    }
 
     // Update the user with employee role and verification token
     // Use native MongoDB driver to ensure non-schema fields are persisted
