@@ -11,7 +11,9 @@ export const initAuth = () => {
   if (authInstance) return authInstance;
 
   authInstance = betterAuth({
-    database: mongodbAdapter(mongoose.connection.getClient().db("printemporium")),
+    database: mongodbAdapter(
+      mongoose.connection.getClient().db("printemporium"),
+    ),
 
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
@@ -26,15 +28,20 @@ export const initAuth = () => {
     // Using the recommended 'advanced' pattern from Better Auth docs
     advanced: {
       // Force secure cookies in production OR Vercel environment
-      useSecureCookies: process.env.NODE_ENV === "production" || process.env.VERCEL === "1",
+      useSecureCookies:
+        process.env.NODE_ENV === "production" || process.env.VERCEL === "1",
       // Default attributes for all cookies
       defaultCookieAttributes: {
         httpOnly: true,
         // vital for Vercel/Render deployments behind load balancers
-        secure: process.env.NODE_ENV === "production" || process.env.VERCEL === "1",
-        // For cross-domain (frontend on domain A, backend on domain B), 
+        secure:
+          process.env.NODE_ENV === "production" || process.env.VERCEL === "1",
+        // For cross-domain (frontend on domain A, backend on domain B),
         // sameSite MUST be "none" in production with secure: true
-        sameSite: process.env.NODE_ENV === "production" || process.env.VERCEL === "1" ? "none" : "lax",
+        sameSite:
+          process.env.NODE_ENV === "production" || process.env.VERCEL === "1"
+            ? "none"
+            : "lax",
         path: "/",
       },
     },
@@ -47,7 +54,7 @@ export const initAuth = () => {
         // It will be: ${baseURL}/callback/google
         // Based on your Google Console, this should resolve to:
         // http://localhost:5000/api/auth/callback/google
-        
+
         // Optional: Always ask user to select account
         prompt: "select_account",
         accessType: "offline",
@@ -62,30 +69,34 @@ export const initAuth = () => {
       sendResetPassword: async ({ user, url, token }, request) => {
         console.log(`📧 Password reset requested for: ${user.email}`);
 
-       
-
         try {
           // Get company settings
-          const settings = await mongoose.connection.db.collection('generalsettings').findOne({ settingsId: "global" });
+          const settings = await mongoose.connection.db
+            .collection("generalsettings")
+            .findOne({ settingsId: "global" });
           const companyName = settings?.companyName || "The Print Emporium";
-          
-          console.log('📧 Password reset - Raw company logo from DB:', settings?.companyLogo);
-          
+
+          console.log(
+            "📧 Password reset - Raw company logo from DB:",
+            settings?.companyLogo,
+          );
+
           // Get company logo URL using centralized helper function
           const companyLogo = getUrlFromPublicId(settings?.companyLogo, {
             width: 180,
             height: 70,
-            crop: "fit"
+            crop: "fit",
           });
-          
-          console.log('📧 Password reset - Final logo URL:', companyLogo);
+
+          console.log("📧 Password reset - Final logo URL:", companyLogo);
 
           // Create frontend reset URL instead of using the backend URL
-          const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+          const frontendUrl =
+            process.env.FRONTEND_URL || "http://localhost:3000";
           const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
           // Logo HTML with better fallback
-          let logoHtml = '';
+          let logoHtml = "";
           if (companyLogo) {
             logoHtml = `
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
@@ -147,7 +158,7 @@ export const initAuth = () => {
                           Reset Your Password
                         </div>
                         <div style="color: #4b5563; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">
-                          Hello ${user.name || 'Administrator'},<br><br>
+                          Hello ${user.name || "Administrator"},<br><br>
                           We received a request to reset the password for your ${companyName} account. Click the button below to create a new password securely.
                         </div>
                         
@@ -215,7 +226,11 @@ export const initAuth = () => {
           </html>
         `;
 
-          await sendEmail(user.email, `🔐 Reset Your Password - ${companyName}`, emailHtml);
+          await sendEmail(
+            user.email,
+            `🔐 Reset Your Password - ${companyName}`,
+            emailHtml,
+          );
           console.log(`✅ Password reset email sent to: ${user.email}`);
         } catch (error) {
           console.error(`❌ Failed to send reset email:`, error);
@@ -252,16 +267,17 @@ export const initAuth = () => {
     },
 
     secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL?.endsWith("/api/auth") 
-      ? process.env.BETTER_AUTH_URL 
+    baseURL: process.env.BETTER_AUTH_URL?.endsWith("/api/auth")
+      ? process.env.BETTER_AUTH_URL
       : `${process.env.BETTER_AUTH_URL}/api/auth`,
 
     trustedOrigins: [
-      process.env.FRONTEND_URL,
+      ...(process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+        : []),
       "http://localhost:3000",
       "http://localhost:5173",
       "http://localhost:5000",
-      "https://print-emporium-g6zs.vercel.app",
     ].filter(Boolean),
 
     // Configure redirect URLs for password reset

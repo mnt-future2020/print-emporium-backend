@@ -31,13 +31,15 @@ app.set("trust proxy", 1); // Enable trust proxy for secure cookies behind load 
 const PORT = process.env.PORT || 5000;
 
 // Middleware - CORS must be configured before all routes
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+  : [];
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  ...corsOrigins,
   "http://localhost:3000",
   "http://localhost:5173",
-  "https://print-emporium.vercel.app",
-  "https://theprintemporium.in",
-].filter(Boolean); // Remove undefined values
+].filter(Boolean);
 
 app.use(
   cors({
@@ -155,10 +157,14 @@ const startServer = async () => {
         return res.status(500).json({ error: "Internal server error" });
       }
     });
-
   } catch (error) {
-    console.error("❌ Failed to initialize core services (DB/Auth/Seed):", error.message);
-    console.warn("⚠️ Server is running but some features may not work until the error is resolved.");
+    console.error(
+      "❌ Failed to initialize core services (DB/Auth/Seed):",
+      error.message,
+    );
+    console.warn(
+      "⚠️ Server is running but some features may not work until the error is resolved.",
+    );
     // DO NOT add process.exit(1) here as it will kill the process and cause 503 errors.
   }
 };
