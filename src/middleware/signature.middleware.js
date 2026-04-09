@@ -3,13 +3,13 @@ import { fromNodeHeaders } from "better-auth/node";
 import { initAuth } from "../lib/auth.js";
 
 /**
- * Middleware to verify HMAC signatures for public API requests OR 
+ * Middleware to verify HMAC signatures for public API requests OR
  * verify admin session for dashboard requests.
  */
 /**
- * Middleware to verify HMAC signatures for public API requests OR 
+ * Middleware to verify HMAC signatures for public API requests OR
  * verify admin session for dashboard requests.
- * 
+ *
  * Works universally for all routes.
  */
 export const requireAdminOrSignedRequest = async (req, res, next) => {
@@ -38,12 +38,16 @@ export const requireAdminOrSignedRequest = async (req, res, next) => {
     // This allows client-side hooks like useCompanySettings to work
     const origin = req.headers.origin;
     const referer = req.headers.referer;
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const allowedOrigins = process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+      : [process.env.FRONTEND_URL || "http://localhost:3000"];
 
-    // Check if origin/referer matches frontend URL (fixed comparison logic)
     const isFromFrontend =
-      (origin && (origin === frontendUrl || origin.startsWith(frontendUrl.replace(/\/$/, '')))) ||
-      (referer && referer.startsWith(frontendUrl));
+      (origin &&
+        allowedOrigins.some(
+          (o) => origin === o || origin.startsWith(o.replace(/\/$/, "")),
+        )) ||
+      (referer && allowedOrigins.some((o) => referer.startsWith(o)));
 
     if (req.method === "GET" && isFromFrontend) {
       return next();
@@ -52,10 +56,13 @@ export const requireAdminOrSignedRequest = async (req, res, next) => {
     // 3. Check for HMAC Signature (Public server-to-server or non-browser access)
     const signature = req.headers["x-signature"];
     const timestamp = req.headers["x-timestamp"];
-    const secret = process.env.API_SHARED_SECRET || "default_api_secret_change_me";
+    const secret =
+      process.env.API_SHARED_SECRET || "default_api_secret_change_me";
 
     if (!signature || !timestamp) {
-      console.log(`⚠️ Auth failed: No session or signature for ${req.method} ${req.path}`);
+      console.log(
+        `⚠️ Auth failed: No session or signature for ${req.method} ${req.path}`,
+      );
       return res.status(401).json({
         success: false,
         message: "Unauthorized: Protected API",
@@ -76,7 +83,10 @@ export const requireAdminOrSignedRequest = async (req, res, next) => {
 
     // Re-calculate the expected signature
     const rawPath = (req.baseUrl + req.path).toLowerCase();
-    const path = rawPath.endsWith("/") && rawPath.length > 1 ? rawPath.slice(0, -1) : rawPath;
+    const path =
+      rawPath.endsWith("/") && rawPath.length > 1
+        ? rawPath.slice(0, -1)
+        : rawPath;
     const method = req.method.toUpperCase();
     const payload = `${method}:${path}:${timestamp}`;
 
