@@ -90,6 +90,7 @@ export const upsertService = async (req, res) => {
       name,
       image,
       basePricePerPage,
+      basePriceRanges,
       customQuotation,
       printTypes,
       paperSizes,
@@ -145,11 +146,46 @@ export const upsertService = async (req, res) => {
       }
     }
 
-    if (!customQuotation && (!basePricePerPage || basePricePerPage <= 0)) {
+    const hasRanges =
+      Array.isArray(basePriceRanges) && basePriceRanges.length > 0;
+
+    if (
+      !customQuotation &&
+      (!basePricePerPage || basePricePerPage <= 0) &&
+      !hasRanges
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Base price per page is required for non-quotation services",
+        message:
+          "Base price (fallback or at least one price range) is required for non-quotation services",
       });
+    }
+
+    if (hasRanges) {
+      for (const range of basePriceRanges) {
+        if (
+          typeof range.min !== "number" ||
+          typeof range.max !== "number" ||
+          typeof range.price !== "number"
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Each base price range must have numeric min, max, and price",
+          });
+        }
+        if (range.min < 0 || range.max < 0 || range.price < 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Base price ranges cannot have negative values",
+          });
+        }
+        if (range.min >= range.max) {
+          return res.status(400).json({
+            success: false,
+            message: "Base price range min must be less than max",
+          });
+        }
+      }
     }
 
     // Validate status
@@ -228,15 +264,15 @@ export const upsertService = async (req, res) => {
           }
 
           // Validate non-binding options: cannot have both pricing types
-          if ((option.pricePerPage || 0) > 0 && (option.pricePerCopy || 0) > 0) {
+          if ((option.pricePerPage || 0) !== 0 && (option.pricePerCopy || 0) !== 0) {
             return res.status(400).json({
               success: false,
               message: `Cannot set both pricePerPage and pricePerCopy for ${arrayName}. Please choose only one pricing type per option.`,
             });
           }
 
-          // Validate no negative prices
-          if ((option.pricePerPage || 0) < 0 || (option.pricePerCopy || 0) < 0) {
+          // Validate no negative prices (except for printSides)
+          if (arrayName !== "printSides" && ((option.pricePerPage || 0) < 0 || (option.pricePerCopy || 0) < 0)) {
             return res.status(400).json({
               success: false,
               message: `Option "${option.value}" in ${arrayName} cannot have negative prices`,
@@ -287,6 +323,7 @@ export const upsertService = async (req, res) => {
     const serviceData = {
       name,
       basePricePerPage,
+      basePriceRanges: hasRanges ? basePriceRanges : [],
       customQuotation,
       printTypes,
       paperSizes,

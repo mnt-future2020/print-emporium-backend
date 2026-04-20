@@ -73,18 +73,30 @@ serviceOptionSchema.pre("save", function (next) {
     // If neither, effectively it's free or invalid? Mongoose doesn't enforce required here except category/label/value
   } else {
     // Standard validation for other types
-    if (this.pricePerPage > 0 && this.pricePerCopy > 0) {
+    const isPrintSide = this.category === "printSide";
+    const hasPricePerPage = this.pricePerPage !== undefined && this.pricePerPage !== 0;
+    const hasPricePerCopy = this.pricePerCopy !== undefined && this.pricePerCopy !== 0;
+
+    if (hasPricePerPage && hasPricePerCopy) {
       const error = new Error(
         "Cannot set both pricePerPage and pricePerCopy. Please choose only one pricing type.",
       );
       return next(error);
     }
 
-    // Remove the field that is 0 or undefined to keep only the selected pricing type
-    if (!this.pricePerPage || this.pricePerPage === 0) {
+    // Prevent negatives for non-printSide categories
+    if (!isPrintSide) {
+      if (this.pricePerPage < 0 || this.pricePerCopy < 0) {
+        const error = new Error("Negative prices are only allowed for Print Side options.");
+        return next(error);
+      }
+    }
+
+    // Clean up undefined/zero fields
+    if (!hasPricePerPage) {
       this.pricePerPage = undefined;
     }
-    if (!this.pricePerCopy || this.pricePerCopy === 0) {
+    if (!hasPricePerCopy) {
       this.pricePerCopy = undefined;
     }
   }

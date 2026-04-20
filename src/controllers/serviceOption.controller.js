@@ -49,7 +49,7 @@ export const upsertServiceOption = async (req, res) => {
     }
 
     // Validate: Only one pricing type can be set (skip for bindingOption if fixedPrice or priceRanges is used)
-    if (category !== "bindingOption" && pricePerPage > 0 && pricePerCopy > 0) {
+    if (category !== "bindingOption" && Number(pricePerPage || 0) !== 0 && Number(pricePerCopy || 0) !== 0) {
       return res.status(400).json({
         success: false,
         message:

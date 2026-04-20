@@ -15,6 +15,13 @@ const serviceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    basePriceRanges: [
+      {
+        min: { type: Number },
+        max: { type: Number },
+        price: { type: Number },
+      },
+    ],
     customQuotation: {
       type: Boolean,
       default: false,
@@ -101,18 +108,32 @@ serviceSchema.pre("save", function (next) {
     const options = this[arrayName];
     if (options && Array.isArray(options)) {
       for (const option of options) {
-        if (option.pricePerPage > 0 && option.pricePerCopy > 0) {
+        // Allow negative prices ONLY for printSides
+        const isPrintSide = arrayName === "printSides";
+        const hasPricePerPage = option.pricePerPage !== undefined && option.pricePerPage !== 0;
+        const hasPricePerCopy = option.pricePerCopy !== undefined && option.pricePerCopy !== 0;
+
+        if (hasPricePerPage && hasPricePerCopy) {
           const error = new Error(
             `Cannot set both pricePerPage and pricePerCopy for ${arrayName}. Please choose only one pricing type per option.`,
           );
           return next(error);
         }
 
-        // Remove the field that is 0 or undefined to keep only the selected pricing type
-        if (!option.pricePerPage || option.pricePerPage === 0) {
+        // For other categories, still prevent negative values if they were previously blocked
+        // (The previous code used > 0, which implicitly blocked negatives)
+        if (!isPrintSide) {
+          if (option.pricePerPage < 0 || option.pricePerCopy < 0) {
+            const error = new Error(`Negative prices are only allowed for Print Side options.`);
+            return next(error);
+          }
+        }
+
+        // Clean up undefined/zero fields
+        if (!hasPricePerPage) {
           option.pricePerPage = undefined;
         }
-        if (!option.pricePerCopy || option.pricePerCopy === 0) {
+        if (!hasPricePerCopy) {
           option.pricePerCopy = undefined;
         }
       }
