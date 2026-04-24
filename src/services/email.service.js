@@ -17,8 +17,6 @@ export const sendOrderConfirmationEmail = async (order, invoicePDFBuffer) => {
     const companyName = settings?.companyName || "The Print Emporium";
     const companyEmail = settings?.companyEmail || emailConfig.from;
 
-    console.log('📧 Order confirmation - Raw company logo from DB:', settings?.companyLogo);
-    
     // Get company logo URL using centralized helper function
     const companyLogo = getUrlFromPublicId(settings?.companyLogo, {
       width: 180,
@@ -26,8 +24,6 @@ export const sendOrderConfirmationEmail = async (order, invoicePDFBuffer) => {
       crop: "fit"
     });
     
-    console.log('📧 Order confirmation - Final logo URL:', companyLogo);
-
     // Logo HTML with better fallback
     let logoHtml = '';
     if (companyLogo) {
@@ -277,14 +273,8 @@ export const sendOrderConfirmationEmail = async (order, invoicePDFBuffer) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(
-      `Order confirmation email sent to ${order.deliveryInfo?.email}:`,
-      info.messageId
-    );
-
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Failed to send order confirmation email:", error);
     throw error;
   }
 };
@@ -467,12 +457,9 @@ export const sendOrderStatusUpdateEmail = async (order) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Order status update email sent for ${order.orderNumber}:`, info.messageId);
-
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Failed to send order status update email:", error);
-    // Don't throw error to avoid breaking the status update flow, but log it
+    // Don't throw error to avoid breaking the status update flow
     return { success: false, error: error.message };
   }
 };

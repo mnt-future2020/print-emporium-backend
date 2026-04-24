@@ -184,7 +184,6 @@ export const getSettings = async (req, res) => {
       data: data,
     });
   } catch (error) {
-    console.error("Get settings error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch settings",
@@ -386,8 +385,6 @@ export const updateGeneralSettings = async (req, res) => {
     }
 
     if (emailChanged) {
-      console.log(`🔄 Email change requested: ${oldEmail} → ${companyEmail}`);
-
       try {
         const adminUser = await User.findById(req.user.id);
 
@@ -458,7 +455,6 @@ export const updateGeneralSettings = async (req, res) => {
       emailChanged,
     });
   } catch (error) {
-    console.error("Update general settings error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update general settings",
@@ -621,7 +617,6 @@ export const verifyEmailChange = async (req, res) => {
       </html>
     `);
   } catch (error) {
-    console.error("Verify email change error:", error);
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
     const dashboardUrl = `${frontendUrl}/dashboard`;
 
@@ -686,7 +681,6 @@ export const getPricingSettings = async (req, res) => {
       data: pricingSettings,
     });
   } catch (error) {
-    console.error("Get pricing settings error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch pricing settings",
@@ -736,7 +730,6 @@ export const updatePricingSettings = async (req, res) => {
       data: pricingSettings,
     });
   } catch (error) {
-    console.error("Update pricing settings error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update pricing settings",

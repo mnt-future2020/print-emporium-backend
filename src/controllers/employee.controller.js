@@ -47,7 +47,6 @@ export const getAllEmployees = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get employees error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch employees",
@@ -216,8 +215,6 @@ export const createEmployee = async (req, res) => {
       height: 70,
       crop: "fit",
     });
-    console.log("📧 Create employee - Company logo URL:", companyLogo);
-
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
     const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
@@ -234,7 +231,6 @@ export const createEmployee = async (req, res) => {
         },
       });
     } catch (authError) {
-      console.error("Better Auth signUp error:", authError);
       return res.status(400).json({
         success: false,
         message: "User with this email already exists",
@@ -295,7 +291,6 @@ export const createEmployee = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Create employee error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to create employee account",
@@ -370,7 +365,6 @@ export const verifyEmployee = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Verify employee error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to verify employee account",
@@ -417,7 +411,6 @@ export const updateEmployeeStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update employee status error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to update employee status",
@@ -453,7 +446,6 @@ export const deleteEmployee = async (req, res) => {
       message: "Employee deleted successfully",
     });
   } catch (error) {
-    console.error("Delete employee error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to delete employee",
@@ -498,12 +490,6 @@ export const resendVerification = async (req, res) => {
       crop: "fit",
     });
 
-    if (companyLogo) {
-      console.log("📧 Resend verification - Company logo URL:", companyLogo);
-    } else {
-      console.log("📧 Resend verification - No company logo found in settings");
-    }
-
     // Generate new verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
     const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -543,7 +529,6 @@ export const resendVerification = async (req, res) => {
       message: "Verification email sent successfully",
     });
   } catch (error) {
-    console.error("Resend verification error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to resend verification email",

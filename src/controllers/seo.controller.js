@@ -22,7 +22,6 @@ export const getAllSEOSettings = async (req, res) => {
       data: settingsWithUrls,
     });
   } catch (error) {
-    console.error("Get SEO settings error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch SEO settings",
@@ -55,7 +54,6 @@ export const getSEOSettingsByPage = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get SEO settings by page error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch SEO settings",
@@ -152,7 +150,6 @@ export const upsertSEOSettings = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Upsert SEO settings error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update SEO settings",
@@ -187,7 +184,6 @@ export const deleteSEOSettings = async (req, res) => {
       message: "SEO settings deleted successfully",
     });
   } catch (error) {
-    console.error("Delete SEO settings error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to delete SEO settings",

@@ -7,14 +7,12 @@ export const seedAdmin = async () => {
     const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
 
     if (adminExists) {
-      console.log('✅ Admin user already exists');
       // Ensure the user has admin role
       if (adminExists.role !== 'admin') {
-        await User.findByIdAndUpdate(adminExists._id, { 
+        await User.findByIdAndUpdate(adminExists._id, {
           role: 'admin',
           emailVerified: true
         });
-        console.log('   Updated to admin role');
       }
       return adminExists;
     }
@@ -37,30 +35,23 @@ export const seedAdmin = async () => {
     adminUser.emailVerified = true;
     await adminUser.save();
 
-    console.log('✅ Admin user created successfully');
-    console.log(`   Email: ${process.env.ADMIN_EMAIL}`);
-    console.log(`   Password: ${process.env.ADMIN_PASSWORD}`);
-    
     return result.user;
   } catch (error) {
     // If user already exists, just log and continue
     if (error.message?.includes('already taken') || error.message?.includes('already exists')) {
-      console.log('✅ Admin user already exists');
       const adminUser = await User.findOne({ email: process.env.ADMIN_EMAIL });
-      
+
       // Ensure admin role
       if (adminUser && adminUser.role !== 'admin') {
-        await User.findByIdAndUpdate(adminUser._id, { 
+        await User.findByIdAndUpdate(adminUser._id, {
           role: 'admin',
           emailVerified: true
         });
-        console.log('   Updated to admin role');
       }
       
       return adminUser;
     }
     
-    console.error('❌ Error seeding admin:', error.message);
     throw error;
   }
 };

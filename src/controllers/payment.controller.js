@@ -67,7 +67,6 @@ export const updatePaymentSettings = async (req, res) => {
       // Attempt a lightweight call to verify credentials
       await instance.orders.all({ count: 1 });
     } catch (validationError) {
-      console.error("Razorpay validation failed:", validationError);
       return res.status(400).json({
         success: false,
         message: "Invalid Razorpay credentials. Connection failed.",
@@ -174,7 +173,6 @@ export const createPaymentOrder = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Create Razorpay order error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to create payment order",
@@ -220,17 +218,11 @@ export const verifyPayment = async (req, res) => {
         
         // Check if webhook is configured
         const hasWebhook = paymentConfig.webhookSecret && paymentConfig.webhookSecret.trim() !== '';
-        
-        if (hasWebhook) {
-          console.log(`✅ Payment verified for order ${order.orderNumber}. Webhook will handle invoice email.`);
-        } else {
+
+        if (!hasWebhook) {
           // No webhook configured - send email immediately (development/testing mode)
-          console.log(`⚠️ No webhook configured. Sending invoice email immediately for order ${order.orderNumber}...`);
-          
           if (!order.invoiceEmailSent) {
             try {
-              console.log(`📧 Generating invoice and sending confirmation email for order ${order.orderNumber}...`);
-
               const invoicePDF = await generateInvoicePDF(order);
               await sendOrderConfirmationEmail(order, invoicePDF);
 
@@ -238,13 +230,9 @@ export const verifyPayment = async (req, res) => {
               order.invoiceEmailSent = true;
               order.invoiceEmailSentAt = new Date();
               await order.save();
-              
-              console.log(`✅ Invoice generated and email sent for order ${order.orderNumber}`);
             } catch (emailError) {
-              console.error('❌ Failed to send order confirmation email:', emailError);
+              // Failed to send order confirmation email
             }
-          } else {
-            console.log(`ℹ️ Invoice email already sent for order ${order.orderNumber}, skipping.`);
           }
         }
         
@@ -254,7 +242,6 @@ export const verifyPayment = async (req, res) => {
     }
 
   } catch (error) {
-    console.error("Payment verification error:", error);
     return res.status(500).json({ success: false, message: "Payment verification failed" });
   }
 };
@@ -270,7 +257,6 @@ export const handlePaymentWebhook = async (req, res) => {
 
     const paymentConfig = await getDecryptedPaymentConfig();
     if (!paymentConfig || !paymentConfig.webhookSecret) {
-        console.error("Webhook secret not configured");
          // Respond 200 to keep Razorpay happy even if we can't process it, 
          // but strictly speaking should be 500. Let's return 400 for config missing.
         return res.status(400).json({ success: false, message: "Webhook secret not configured" });
@@ -317,8 +303,6 @@ export const handlePaymentWebhook = async (req, res) => {
                     order.paymentMethod = paymentEntity.method || "razorpay";
                     
                     await order.save();
-                    console.log(`Order ${order.orderNumber} payment captured via webhook. Payment ID: ${paymentEntity.id}`);
-                    
                     // Try to atomically claim the email sending task
                     const claimedOrder = await Order.findOneAndUpdate(
                       { 
@@ -335,22 +319,15 @@ export const handlePaymentWebhook = async (req, res) => {
                     // If claimedOrder is not null, we successfully claimed it (it was false before)
                     if (claimedOrder && !claimedOrder.invoiceEmailSent) {
                       try {
-                        console.log(`📧 [Webhook] Generating invoice and sending confirmation email for order ${order.orderNumber}...`);
-
                         const invoicePDF = await generateInvoicePDF(order);
                         await sendOrderConfirmationEmail(order, invoicePDF);
-                        
-                        console.log(`✅ [Webhook] Invoice generated and email sent for order ${order.orderNumber}`);
                       } catch (emailError) {
-                        console.error('❌ [Webhook] Failed to send order confirmation email:', emailError);
                         // Rollback the flag if email failed
                         await Order.findByIdAndUpdate(internalOrderId, {
                           invoiceEmailSent: false,
                           invoiceEmailSentAt: null
                         });
                       }
-                    } else {
-                      console.log(`ℹ️ [Webhook] Invoice email already sent for order ${order.orderNumber}, skipping.`);
                     }
                 }
             }
@@ -373,7 +350,6 @@ export const handlePaymentWebhook = async (req, res) => {
                      }
                      
                      await order.save();
-                     console.log(`Order ${order.orderNumber} confirmed via webhook (order.paid event).`);
                  }
              }
         }
@@ -383,7 +359,6 @@ export const handlePaymentWebhook = async (req, res) => {
         // Pass-through for now if signature mismatch to avoid blocking if just testing, 
         // BUT strict security means we should reject.
         // Let's console error and reject.
-        console.error("Webhook signature mismatch", { expected: digest, received: signature });
         return res.status(400).json({ success: false, message: "Invalid signature" });
     }
 }

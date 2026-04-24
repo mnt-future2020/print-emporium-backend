@@ -20,16 +20,6 @@ export const requireAdminOrSignedRequest = async (req, res, next) => {
       headers: fromNodeHeaders(req.headers),
     });
 
-    // Debug logging for production troubleshooting
-    if (process.env.NODE_ENV === "production") {
-      console.log(`🔐 Auth check: ${req.method} ${req.path}`, {
-        hasSession: !!session,
-        userRole: session?.user?.role,
-        origin: req.headers.origin,
-        hasCookies: !!req.headers.cookie,
-      });
-    }
-
     if (session && session.user.role === "admin") {
       return next();
     }
@@ -60,9 +50,6 @@ export const requireAdminOrSignedRequest = async (req, res, next) => {
       process.env.API_SHARED_SECRET || "default_api_secret_change_me";
 
     if (!signature || !timestamp) {
-      console.log(
-        `⚠️ Auth failed: No session or signature for ${req.method} ${req.path}`,
-      );
       return res.status(401).json({
         success: false,
         message: "Unauthorized: Protected API",
@@ -104,7 +91,6 @@ export const requireAdminOrSignedRequest = async (req, res, next) => {
       message: "Unauthorized: Invalid API signature",
     });
   } catch (error) {
-    console.error("Universal signature verification error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal authorization error",

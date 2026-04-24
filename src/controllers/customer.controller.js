@@ -90,7 +90,6 @@ export const getAllCustomers = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Get customers error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch customers",
@@ -119,7 +118,6 @@ export const getCustomerDetails = async (req, res) => {
       orders
     });
   } catch (error) {
-    console.error("Get customer details error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch customer details",

@@ -53,7 +53,6 @@ export async function getEmailConfig() {
       };
     }
   } catch (error) {
-    console.error("❌ Error getting email configuration:", error);
     // Final fallback to environment variables
     return {
       host: process.env.SMTP_HOST,
@@ -97,7 +96,6 @@ export async function sendEmail(userEmail, subject, message) {
 
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("❌ Email send error:", error);
     throw error;
   }
 }

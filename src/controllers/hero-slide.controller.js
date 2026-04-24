@@ -53,10 +53,8 @@ const seedDefaultSlides = async () => {
       // Convert images to public IDs if they were uploaded
       // But for seed, we use URLs directly which will be handled by getUrlFromPublicId helper if it's not a URL
       await HeroSlide.insertMany(defaultSlides);
-      console.log("✅ Default hero slides seeded successfully");
     }
   } catch (error) {
-    console.error("Error seeding default hero slides:", error);
   }
 };
 
@@ -84,7 +82,6 @@ export const getAllSlides = async (req, res) => {
       data: slidesWithUrls,
     });
   } catch (error) {
-    console.error("Get slides error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch slides",
@@ -186,7 +183,6 @@ export const upsertSlide = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Save slide error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save slide",
@@ -219,7 +215,6 @@ export const deleteSlide = async (req, res) => {
       message: "Hero slide deleted successfully",
     });
   } catch (error) {
-    console.error("Delete slide error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to delete slide",

@@ -18,7 +18,6 @@ export const getAllServiceOptions = async (req, res) => {
       data: options,
     });
   } catch (error) {
-    console.error("Get service options error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch service options",
@@ -102,7 +101,6 @@ export const upsertServiceOption = async (req, res) => {
       data: option,
     });
   } catch (error) {
-    console.error("Save service option error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save service option",
@@ -126,7 +124,6 @@ export const deleteServiceOption = async (req, res) => {
       message: "Service option deleted successfully",
     });
   } catch (error) {
-    console.error("Delete service option error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to delete service option",

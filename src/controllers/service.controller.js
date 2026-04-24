@@ -36,7 +36,6 @@ export const getAllServices = async (req, res) => {
       data: servicesWithUrls,
     });
   } catch (error) {
-    console.error("Get services error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch services",
@@ -73,7 +72,6 @@ export const getServiceById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get service by ID error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch service",
@@ -359,7 +357,6 @@ export const upsertService = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Save service error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save service",
@@ -393,7 +390,6 @@ export const deleteService = async (req, res) => {
       message: "Service deleted successfully",
     });
   } catch (error) {
-    console.error("Delete service error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to delete service",

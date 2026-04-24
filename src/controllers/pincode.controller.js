@@ -96,7 +96,6 @@ export const lookupPincode = async (req, res) => {
     return res.status(200).json({ success: true, cached: false, ...data });
   } catch (err) {
     const aborted = err?.name === "AbortError";
-    console.error("Pincode lookup failed:", err?.message || err);
     return res.status(aborted ? 504 : 502).json({
       success: false,
       message: aborted ? "Pincode provider timed out" : "Pincode lookup failed",

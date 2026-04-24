@@ -44,7 +44,6 @@ export const getPublicIdFromUrl = (url) => {
 
     return publicId;
   } catch (error) {
-    console.error("Error extracting public ID:", error);
     return null;
   }
 };
@@ -121,7 +120,6 @@ export const uploadToCloudinary = async (
       public_id: cleanPublicId,
     };
   } catch (error) {
-    console.error("Cloudinary upload error:", error);
     throw new Error("Failed to upload image to Cloudinary");
   }
 };
@@ -158,7 +156,6 @@ export const uploadRawToCloudinary = async (
       public_id: cleanPublicId,
     };
   } catch (error) {
-    console.error("Cloudinary raw upload error:", error);
     throw new Error("Failed to upload file to Cloudinary");
   }
 };
@@ -194,9 +191,7 @@ export const deleteFromCloudinary = async (identifier) => {
     if (publicId && !publicId.startsWith("/images/")) {
       // Don't try to delete local fallback images
       await cloudinary.uploader.destroy(publicId);
-      console.log(`Deleted from Cloudinary: ${publicId}`);
     }
   } catch (error) {
-    console.error("Cloudinary deletion error:", error);
   }
 };

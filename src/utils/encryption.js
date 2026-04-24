@@ -12,7 +12,6 @@ export function encryptPassword(password) {
     encrypted += cipher.final("hex");
     return iv.toString("hex") + ":" + encrypted;
   } catch (error) {
-    console.error("Encryption error:", error);
     return password;
   }
 }
@@ -31,7 +30,6 @@ export function decryptPassword(encryptedPassword) {
     decrypted += decipher.final("utf8");
     return decrypted;
   } catch (error) {
-    console.error("Decryption error:", error);
     return encryptedPassword;
   }
 }

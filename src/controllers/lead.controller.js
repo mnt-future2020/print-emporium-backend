@@ -31,7 +31,6 @@ export const createLead = async (req, res) => {
       leadId: newLead._id,
     });
   } catch (error) {
-    console.error("Create lead error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Failed to process your request. Please try again later.",
@@ -76,7 +75,6 @@ export const getAllLeads = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get all leads error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Failed to fetch leads",
@@ -110,7 +108,6 @@ export const updateLead = async (req, res) => {
       lead,
     });
   } catch (error) {
-    console.error("Update lead error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Failed to update lead",
@@ -136,7 +133,6 @@ export const deleteLead = async (req, res) => {
       message: "Lead deleted successfully",
     });
   } catch (error) {
-    console.error("Delete lead error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Failed to delete lead",

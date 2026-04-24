@@ -5,7 +5,31 @@ import {
   getUrlFromPublicId,
   getRawUrlFromPublicId,
 } from "../utils/cloudinary-helper.js";
+import { uploadToS3, getS3Url } from "../utils/s3-helper.js";
 import { convertFileToPdf } from "./fileConversion.controller.js";
+
+// Unified URL resolver: handles both legacy Cloudinary public_ids and new S3 keys
+const resolveFileUrl = async (key) => {
+  if (!key) return null;
+  if (key.startsWith("http")) return key;
+  // S3 keys contain "/" but no "res.cloudinary.com" prefix
+  // Cloudinary public_ids look like "printemporium/orders/originals/filename"
+  // S3 keys look like "orders/originals/abc123_filename.pdf"
+  if (key.startsWith("orders/")) {
+    return getS3Url(key);
+  }
+  // Legacy Cloudinary key
+  return getRawUrlFromPublicId(key);
+};
+
+const resolvePdfUrl = async (key) => {
+  if (!key) return null;
+  if (key.startsWith("http")) return key;
+  if (key.startsWith("orders/")) {
+    return getS3Url(key);
+  }
+  return getUrlFromPublicId(key);
+};
 import { generateInvoicePDF } from "../utils/invoice-pdf-generator.js";
 import { sendOrderStatusUpdateEmail } from "../services/email.service.js";
 
@@ -23,111 +47,61 @@ export const uploadOrderFile = async (req, res) => {
       });
     }
 
-    const customPublicId = fileName.split(".")[0];
     const fileExtension = fileName.split(".").pop().toLowerCase();
 
-    // 1. Upload original file as RAW to preserve original format
-    console.log(`Uploading original ${fileName} to Cloudinary (raw)...`);
-    const originalUpload = await uploadRawToCloudinary(
+    // 1. Upload original file to S3
+    const originalUpload = await uploadToS3(
       fileData,
-      "printemporium/orders/originals",
-      `${customPublicId}.${fileExtension}`, // Include extension in public_id
+      "orders/originals",
+      fileName,
     );
 
-    let pdfPublicId = null;
+    let pdfKey = null;
 
     // 2. Handle PDF version
     if (fileExtension === "pdf") {
-      // For original PDFs, also upload as image resource type for proper display
-      console.log(
-        "File is already PDF, uploading as image resource type for display...",
-      );
-      const pdfUpload = await uploadToCloudinary(
-        fileData,
-        "printemporium/orders/pdfs",
-        `${customPublicId}_pdf`,
-        { resource_type: "image", format: "pdf" },
-      );
-      pdfPublicId = pdfUpload.public_id;
+      // Original is already PDF — use the same key for PDF display
+      pdfKey = originalUpload.key;
     } else if (pdfData) {
       // Use the PDF data provided by frontend (converted on client)
-      console.log(`Uploading provided PDF data for ${fileName}...`);
-      const pdfUpload = await uploadToCloudinary(
+      const pdfUpload = await uploadToS3(
         pdfData,
-        "printemporium/orders/pdfs",
-        `${customPublicId}_pdf`,
-        { resource_type: "image", format: "pdf" },
+        "orders/pdfs",
+        `${fileName.split(".")[0]}.pdf`,
       );
-      pdfPublicId = pdfUpload.public_id;
+      pdfKey = pdfUpload.key;
     } else {
-      // Optional: If no pdfData provided, we could convert it here on server
-      console.log(
-        `No PDF data provided, attempting server-side conversion for ${fileName}...`,
-      );
+      // Server-side conversion fallback
       try {
-        // Extract base64 content and clean it
         let base64Content = fileData.includes(",")
           ? fileData.split(",")[1]
           : fileData;
-        base64Content = base64Content.replace(/\s/g, ""); // Remove all whitespace
+        base64Content = base64Content.replace(/\s/g, "");
 
-        // Validate base64 content
-        if (!base64Content || base64Content.length === 0) {
-          throw new Error("Empty base64 content");
-        }
-
-        // Create buffer from base64
         const buffer = Buffer.from(base64Content, "base64");
+        if (buffer.length === 0) throw new Error("Buffer is empty");
 
-        // Validate buffer
-        if (buffer.length === 0) {
-          throw new Error("Buffer is empty after base64 decode");
-        }
-
-        console.log(
-          `Buffer created: ${buffer.length} bytes for ${fileExtension} file`,
-        );
-
-        // Convert to PDF
         const pdfBuffer = await convertFileToPdf(buffer, fileExtension);
         const pdfBase64 = `data:application/pdf;base64,${pdfBuffer.toString("base64")}`;
 
-        const pdfUpload = await uploadToCloudinary(
+        const pdfUpload = await uploadToS3(
           pdfBase64,
-          "printemporium/orders/pdfs",
-          `${customPublicId}_pdf`,
-          { resource_type: "image", format: "pdf" },
+          "orders/pdfs",
+          `${fileName.split(".")[0]}.pdf`,
         );
-        pdfPublicId = pdfUpload.public_id;
+        pdfKey = pdfUpload.key;
       } catch (convError) {
-        console.error("Server-side conversion failed:", convError);
-        console.warn("Falling back to uploading original file as PDF...");
-
-        // Last resort: upload original file and let Cloudinary handle it
-        try {
-          const pdfUpload = await uploadToCloudinary(
-            fileData,
-            "printemporium/orders/pdfs",
-            `${customPublicId}_pdf`,
-            { resource_type: "image", format: "pdf" },
-          );
-          pdfPublicId = pdfUpload.public_id;
-        } catch (uploadErr) {
-          console.error("Fallback upload also failed:", uploadErr);
-          // Set pdfPublicId to null - order can still be created without PDF
-          pdfPublicId = null;
-        }
+        pdfKey = null;
       }
     }
 
-    // Return both public_ids
+    // Return S3 keys (backward compatible field names)
     res.json({
       success: true,
-      filePublicId: originalUpload.public_id,
-      pdfPublicId: pdfPublicId,
+      filePublicId: originalUpload.key,
+      pdfPublicId: pdfKey,
     });
   } catch (error) {
-    console.error("File upload error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to upload file",
@@ -189,7 +163,6 @@ export const createOrder = async (req, res) => {
           couponDoc.usedCount += 1;
           await couponDoc.save();
         } else {
-          console.warn(`Attempted invalid coupon use: ${couponCode}`);
           // We could return error here, but for now we'll just ignore the invalid coupon
           // to keep the order flow smooth, or we can be strict.
           // Let's be strict for security.
@@ -283,7 +256,6 @@ export const createOrder = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Create order error:", error);
     res.status(500).json({
       error: "Failed to create order",
       details: error.message,
@@ -322,17 +294,15 @@ export const getUserOrders = async (req, res) => {
       .limit(parseInt(limit))
       .lean();
 
-    // Convert public_ids to URLs
-    const ordersWithUrls = orders.map((order) => ({
+    // Convert public_ids/S3 keys to URLs
+    const ordersWithUrls = await Promise.all(orders.map(async (order) => ({
       ...order,
-      items: order.items.map((item) => ({
+      items: await Promise.all(order.items.map(async (item) => ({
         ...item,
-        fileUrl: item.filePublicId
-          ? getRawUrlFromPublicId(item.filePublicId)
-          : null,
-        pdfUrl: item.pdfPublicId ? getUrlFromPublicId(item.pdfPublicId) : null,
-      })),
-    }));
+        fileUrl: await resolveFileUrl(item.filePublicId),
+        pdfUrl: await resolvePdfUrl(item.pdfPublicId),
+      }))),
+    })));
 
     const total = await Order.countDocuments(query);
 
@@ -347,7 +317,6 @@ export const getUserOrders = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get user orders error:", error);
     res.status(500).json({
       error: "Failed to fetch orders",
       details: error.message,
@@ -382,16 +351,14 @@ export const getOrderById = async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    // Convert public_ids to URLs
+    // Convert public_ids/S3 keys to URLs
     const orderWithUrls = {
       ...order,
-      items: order.items.map((item) => ({
+      items: await Promise.all(order.items.map(async (item) => ({
         ...item,
-        fileUrl: item.filePublicId
-          ? getRawUrlFromPublicId(item.filePublicId)
-          : null,
-        pdfUrl: item.pdfPublicId ? getUrlFromPublicId(item.pdfPublicId) : null,
-      })),
+        fileUrl: await resolveFileUrl(item.filePublicId),
+        pdfUrl: await resolvePdfUrl(item.pdfPublicId),
+      }))),
     };
 
     res.json({
@@ -399,7 +366,6 @@ export const getOrderById = async (req, res) => {
       order: orderWithUrls,
     });
   } catch (error) {
-    console.error("Get order error:", error);
     res.status(500).json({
       error: "Failed to fetch order",
       details: error.message,
@@ -446,7 +412,6 @@ export const cancelOrder = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Cancel order error:", error);
     res.status(500).json({
       error: "Failed to cancel order",
       details: error.message,
@@ -513,7 +478,6 @@ export const reorderOrder = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Reorder error:", error);
     res.status(500).json({
       error: "Failed to reorder",
       details: error.message,
@@ -570,17 +534,15 @@ export const getAllOrders = async (req, res) => {
       .populate("userId", "name email")
       .lean();
 
-    // Convert public_ids to URLs
-    const ordersWithUrls = orders.map((order) => ({
+    // Convert public_ids/S3 keys to URLs
+    const ordersWithUrls = await Promise.all(orders.map(async (order) => ({
       ...order,
-      items: order.items.map((item) => ({
+      items: await Promise.all(order.items.map(async (item) => ({
         ...item,
-        fileUrl: item.filePublicId
-          ? getRawUrlFromPublicId(item.filePublicId)
-          : null,
-        pdfUrl: item.pdfPublicId ? getUrlFromPublicId(item.pdfPublicId) : null,
-      })),
-    }));
+        fileUrl: await resolveFileUrl(item.filePublicId),
+        pdfUrl: await resolvePdfUrl(item.pdfPublicId),
+      }))),
+    })));
 
     const total = await Order.countDocuments(query);
 
@@ -595,7 +557,6 @@ export const getAllOrders = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get all orders error:", error);
     res.status(500).json({
       error: "Failed to fetch orders",
       details: error.message,
@@ -609,7 +570,7 @@ export const getAllOrders = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, trackingNumber, notes } = req.body;
+    const { status, trackingNumber, notes, paymentStatus, paymentMethod } = req.body;
 
     const order = await Order.findById(id);
 
@@ -622,15 +583,29 @@ export const updateOrderStatus = async (req, res) => {
     if (status) order.status = status;
     if (trackingNumber) order.trackingNumber = trackingNumber;
     if (notes) order.notes = notes;
+    if (paymentStatus) order.paymentStatus = paymentStatus;
+    if (paymentMethod) order.paymentMethod = paymentMethod;
 
     await order.save();
+
+    // Send invoice email when admin marks payment as paid (cash/manual)
+    if (paymentStatus === "paid" && !order.invoiceEmailSent) {
+      try {
+        const invoicePDF = await generateInvoicePDF(order);
+        const { sendOrderConfirmationEmail } = await import("../services/email.service.js");
+        await sendOrderConfirmationEmail(order, invoicePDF);
+        order.invoiceEmailSent = true;
+        order.invoiceEmailSentAt = new Date();
+        await order.save();
+      } catch (emailError) {
+      }
+    }
 
     // Send email notification if status updated
     if (status && status !== oldStatus) {
       try {
         await sendOrderStatusUpdateEmail(order);
       } catch (emailError) {
-        console.error("Failed to send status update email:", emailError);
       }
     }
 
@@ -644,7 +619,6 @@ export const updateOrderStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update order status error:", error);
     res.status(500).json({
       error: "Failed to update order status",
       details: error.message,
@@ -971,7 +945,6 @@ export const getOrderStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get order stats error:", error);
     res.status(500).json({
       error: "Failed to fetch order statistics",
       details: error.message,
@@ -1023,7 +996,6 @@ export const downloadInvoice = async (req, res) => {
     // Send PDF buffer
     res.send(invoicePDF);
   } catch (error) {
-    console.error("Download invoice error:", error);
     res.status(500).json({
       error: "Failed to generate invoice",
       details: error.message,

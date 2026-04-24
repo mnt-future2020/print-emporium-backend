@@ -31,7 +31,6 @@ const getCompanyDetails = async () => {
       shippingLabelSizes: settings.shippingLabelSizes || [],
     };
   } catch (error) {
-    console.error("Error fetching company details:", error);
     return {
       name: "Print Emporium",
       address: "Address Unavailable",
@@ -335,7 +334,6 @@ export const generateOrderSlip = async (req, res) => {
 
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error generating order slip:", error);
     res.status(500).json({ success: false, message: "Failed to generate PDF" });
   }
 };
@@ -394,7 +392,6 @@ export const generateShippingLabel = async (req, res) => {
 
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error generating shipping label:", error);
     res.status(500).json({ success: false, message: "Failed to generate PDF" });
   }
 };

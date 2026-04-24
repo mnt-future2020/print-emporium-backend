@@ -67,8 +67,6 @@ export const initAuth = () => {
       maxPasswordLength: 128,
       resetPasswordTokenExpiresIn: 3600, // 1 hour
       sendResetPassword: async ({ user, url, token }, request) => {
-        console.log(`📧 Password reset requested for: ${user.email}`);
-
         try {
           // Get company settings
           const settings = await mongoose.connection.db
@@ -76,19 +74,12 @@ export const initAuth = () => {
             .findOne({ settingsId: "global" });
           const companyName = settings?.companyName || "The Print Emporium";
 
-          console.log(
-            "📧 Password reset - Raw company logo from DB:",
-            settings?.companyLogo,
-          );
-
           // Get company logo URL using centralized helper function
           const companyLogo = getUrlFromPublicId(settings?.companyLogo, {
             width: 180,
             height: 70,
             crop: "fit",
           });
-
-          console.log("📧 Password reset - Final logo URL:", companyLogo);
 
           // Create frontend reset URL instead of using the backend URL
           const frontendUrl =
@@ -231,9 +222,8 @@ export const initAuth = () => {
             `🔐 Reset Your Password - ${companyName}`,
             emailHtml,
           );
-          console.log(`✅ Password reset email sent to: ${user.email}`);
         } catch (error) {
-          console.error(`❌ Failed to send reset email:`, error);
+          // Failed to send reset email
         }
       },
     },
@@ -246,7 +236,6 @@ export const initAuth = () => {
 
     emailVerification: {
       sendVerificationEmail: async ({ user, url, token }) => {
-        console.log(`📧 Sending verification email to: ${user.email}`);
         // Email sending will be handled by the settings controller for email changes
       },
       autoSignInAfterVerification: true,

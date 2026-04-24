@@ -11,7 +11,7 @@ try {
   const libre = await import('libreoffice-convert');
   libreConvert = promisify(libre.default.convert);
 } catch (e) {
-  console.log('LibreOffice converter not available, using fallback method');
+  // LibreOffice converter not available, using fallback method
 }
 
 /**
@@ -462,7 +462,6 @@ async function convertWithMammoth(buffer) {
                     y -= imgHeight + 10;
                   }
                 } catch (imgErr) {
-                  console.warn('Failed to embed image:', imgErr.message);
                 }
               }
             }
@@ -668,23 +667,18 @@ export const convertFileToPdf = async (buffer, extension) => {
     // Try LibreOffice first (most accurate)
     if (libreConvert) {
       try {
-        console.log('Attempting LibreOffice conversion...');
         pdfBuffer = await convertWithLibreOffice(buffer);
-        console.log('LibreOffice conversion successful');
         return pdfBuffer;
       } catch (libreErr) {
-        console.log('LibreOffice conversion failed, falling back to Mammoth:', libreErr.message);
+        // LibreOffice conversion failed, falling back to Mammoth
       }
     }
-    
+
     // Fallback to Mammoth + PDF-lib
     try {
-      console.log('Using Mammoth conversion...');
       pdfBuffer = await convertWithMammoth(buffer);
-      console.log('Mammoth conversion successful');
       return pdfBuffer;
     } catch (mammothErr) {
-      console.error('Mammoth conversion failed:', mammothErr.message);
       throw new Error(`Failed to convert ${ext} file: ${mammothErr.message}`);
     }
   }
@@ -723,20 +717,16 @@ export const convertWordToPdf = async (req, res) => {
     // Try LibreOffice first (most accurate)
     if (libreConvert) {
       try {
-        console.log('Attempting LibreOffice conversion...');
         pdfBuffer = await convertWithLibreOffice(buffer);
         conversionMethod = 'libreoffice';
-        console.log('LibreOffice conversion successful');
       } catch (libreErr) {
-        console.warn('LibreOffice conversion failed, falling back to Mammoth:', libreErr.message);
+        // LibreOffice conversion failed, falling back to Mammoth
       }
     }
     
     // Fallback to Mammoth + PDF-lib
     if (!pdfBuffer) {
-      console.log('Using Mammoth conversion...');
       pdfBuffer = await convertWithMammoth(buffer);
-      console.log('Mammoth conversion successful');
     }
     
     // Load PDF to get page count
@@ -754,7 +744,6 @@ export const convertWordToPdf = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Word to PDF conversion error:', error);
     res.status(500).json({ 
       error: 'Failed to convert Word document to PDF',
       details: error.message 
@@ -821,7 +810,6 @@ export const getFilePageCount = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Page count error:', error);
     res.status(500).json({ 
       error: 'Failed to count pages',
       details: error.message 

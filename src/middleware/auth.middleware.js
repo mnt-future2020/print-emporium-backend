@@ -21,7 +21,6 @@ export const requireAuth = async (req, res, next) => {
     req.user = session.user;
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error during authorization"
@@ -48,7 +47,6 @@ export const requireAdmin = async (req, res, next) => {
     req.user = session.user;
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error during authorization"
@@ -75,7 +73,6 @@ export const requireAdminOrEmployee = async (req, res, next) => {
     req.user = session.user;
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error during authorization"
