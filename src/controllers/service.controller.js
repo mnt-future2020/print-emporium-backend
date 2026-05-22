@@ -20,7 +20,9 @@ export const getAllServices = async (req, res) => {
     const query = {};
 
     if (status) {
-      query.status = status;
+      // Support comma-separated statuses, e.g. "active,coming-soon"
+      const statuses = String(status).split(",").map((s) => s.trim()).filter(Boolean);
+      query.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
     }
 
     const services = await Service.find(query).sort({ name: 1 });
@@ -187,10 +189,10 @@ export const upsertService = async (req, res) => {
     }
 
     // Validate status
-    if (status && !["active", "inactive"].includes(status)) {
+    if (status && !["active", "inactive", "coming-soon"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Status must be 'active' or 'inactive'",
+        message: "Status must be 'active', 'inactive', or 'coming-soon'",
       });
     }
 
