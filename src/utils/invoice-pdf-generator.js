@@ -17,9 +17,14 @@ const BORDER = rgb(0.91, 0.93, 0.945);      // #e8ecf1
 const PURPLE = rgb(0.357, 0.129, 0.714);
 const PURPLE_BG = rgb(0.929, 0.914, 0.996);
 
-const PAGE_WIDTH = 595.28;
-const PAGE_HEIGHT = 841.89;
-const MARGIN = 42.5; // ~15mm
+// Standard PDF page sizes (in points; 72pt = 1 inch)
+const PAGE_SIZES = {
+  a4: { width: 595.28, height: 841.89, margin: 42.5 },     // 210 × 297 mm
+  a5: { width: 419.53, height: 595.28, margin: 28.35 },    // 148 × 210 mm
+  letter: { width: 612, height: 792, margin: 42.5 },       // 8.5 × 11 in
+  legal: { width: 612, height: 1008, margin: 42.5 },       // 8.5 × 14 in
+};
+const DEFAULT_SIZE = "a4";
 
 // ─── Sanitize for WinAnsi encoding ───
 const sanitize = (str) => String(str ?? "")
@@ -36,9 +41,14 @@ const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", {
 });
 
 /**
- * Generate a professional invoice PDF matching the original HTML design.
+ * Generate a professional invoice PDF in the requested page size.
+ * @param {object} order - Order document
+ * @param {string} [size="a4"] - Page size: "a4", "a5", "letter", "legal"
  */
-export const generateInvoicePDF = async (order) => {
+export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT, margin: MARGIN } =
+    PAGE_SIZES[size?.toLowerCase()] || PAGE_SIZES[DEFAULT_SIZE];
+
   let settings = await GeneralSettings.findOne({ settingsId: "global" });
   if (!settings) {
     settings = {
