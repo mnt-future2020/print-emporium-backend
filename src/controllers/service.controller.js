@@ -1,10 +1,52 @@
 import Service from "../models/Service.js";
+import ServiceOption from "../models/ServiceOption.js";
 import {
   uploadToCloudinary,
   deleteFromCloudinary,
   getUrlFromPublicId,
   getPublicIdFromUrl,
 } from "../utils/cloudinary-helper.js";
+
+// Admin selects WHICH binding options apply per-service (storing only the `value`).
+// Pricing is hydrated at read time from the global ServiceOption master collection
+// so any global edit (price change, range update, etc.) reflects instantly in every
+// service that has that binding selected.
+const buildGlobalBindingMap = async () => {
+  const opts = await ServiceOption.find({
+    category: "bindingOption",
+  });
+  const map = new Map();
+  for (const o of opts) {
+    map.set(o.value, {
+      value: o.value,
+      label: o.label,
+      fixedPrice: o.fixedPrice,
+      pricePerPage: o.pricePerPage,
+      pricePerCopy: o.pricePerCopy,
+      minPages: o.minPages,
+      priceRanges: o.priceRanges,
+      isActive: o.isActive,
+    });
+  }
+  return map;
+};
+
+// Resolve a service's selected binding values against the global map.
+// - Only include active options
+// - Preserve admin's selection order from the service document
+const hydrateBindingOptions = (selectedBindings, globalMap) => {
+  if (!Array.isArray(selectedBindings)) return [];
+  const result = [];
+  for (const sel of selectedBindings) {
+    const key = typeof sel === "string" ? sel : sel?.value;
+    if (!key) continue;
+    const fresh = globalMap.get(key);
+    if (fresh && fresh.isActive) {
+      result.push(fresh);
+    }
+  }
+  return result;
+};
 
 // Get all services
 export const getAllServices = async (req, res) => {
@@ -25,12 +67,19 @@ export const getAllServices = async (req, res) => {
       query.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
     }
 
-    const services = await Service.find(query).sort({ name: 1 });
+    const [services, globalBindingMap] = await Promise.all([
+      Service.find(query).sort({ name: 1 }),
+      buildGlobalBindingMap(),
+    ]);
 
-    // Resolve image URLs
+    // Resolve image URLs + hydrate selected binding options from the global master
     const servicesWithUrls = services.map((service) => ({
       ...service._doc,
       image: service.image ? getUrlFromPublicId(service.image) : null,
+      bindingOptions: hydrateBindingOptions(
+        service._doc.bindingOptions,
+        globalBindingMap,
+      ),
     }));
 
     return res.status(200).json({
@@ -57,7 +106,10 @@ export const getServiceById = async (req, res) => {
     });
 
     const { id } = req.params;
-    const service = await Service.findById(id);
+    const [service, globalBindingMap] = await Promise.all([
+      Service.findById(id),
+      buildGlobalBindingMap(),
+    ]);
 
     if (!service) {
       return res.status(404).json({
@@ -71,6 +123,10 @@ export const getServiceById = async (req, res) => {
       data: {
         ...service._doc,
         image: service.image ? getUrlFromPublicId(service.image) : null,
+        bindingOptions: hydrateBindingOptions(
+          service._doc.bindingOptions,
+          globalBindingMap,
+        ),
       },
     });
   } catch (error) {
@@ -214,13 +270,13 @@ export const upsertService = async (req, res) => {
     }
 
     // Validate option pricing rules
+    // Note: bindingOptions excluded — managed globally via ServiceOption
     const optionArrays = [
       { name: "printTypes", data: printTypes },
       { name: "paperSizes", data: paperSizes },
       { name: "paperTypes", data: paperTypes },
       { name: "gsmOptions", data: gsmOptions },
       { name: "printSides", data: printSides },
-      { name: "bindingOptions", data: bindingOptions },
     ];
 
     for (const { name: arrayName, data } of optionArrays) {
@@ -330,7 +386,14 @@ export const upsertService = async (req, res) => {
       paperTypes,
       gsmOptions,
       printSides,
-      bindingOptions,
+      // Store ONLY the binding `value` references — pricing is hydrated from
+      // the global ServiceOption master at fetch time
+      bindingOptions: Array.isArray(bindingOptions)
+        ? bindingOptions
+            .map((b) => (typeof b === "string" ? b : b?.value))
+            .filter(Boolean)
+            .map((value) => ({ value }))
+        : [],
       status,
       lastUpdatedBy: req.user?.id || "admin",
     };

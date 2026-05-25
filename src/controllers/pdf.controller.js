@@ -2,6 +2,8 @@ import Order from "../models/order.model.js";
 import GeneralSettings from "../models/GeneralSettings.js";
 import { generateOrderSlipPDF, generateShippingLabelPDF } from "../utils/pdf-generator.js";
 import { getUrlFromPublicId } from "../utils/cloudinary-helper.js";
+import { getS3Url } from "../utils/s3-helper.js";
+import { PDFDocument } from "pdf-lib";
 
 // --- Helpers ---
 
@@ -335,6 +337,78 @@ export const generateOrderSlip = async (req, res) => {
     res.send(pdfBuffer);
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to generate PDF" });
+  }
+};
+
+/**
+ * Download a single merged PDF containing the Order Slip + every customer-uploaded PDF
+ * for an order. Used by the admin "PDF File" button so the print operator gets one file.
+ */
+const resolveItemPdfUrl = async (item) => {
+  const key = item.pdfPublicId || item.filePublicId;
+  if (!key) return null;
+  if (key.startsWith("http")) return key;
+  if (key.startsWith("orders/")) return getS3Url(key);
+  return getUrlFromPublicId(key);
+};
+
+export const downloadOrderFilesMerged = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { size = "A4" } = req.query;
+
+    const [order, company] = await Promise.all([
+      Order.findById(orderId),
+      getCompanyDetails(),
+    ]);
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // 1. Generate the order slip PDF
+    const orderSlipBuffer = await generateOrderSlipPDF(order, company, {
+      format: size,
+      marginMM: 10,
+    });
+
+    // 2. Start a merged document with the order slip pages
+    const mergedDoc = await PDFDocument.create();
+    const slipDoc = await PDFDocument.load(orderSlipBuffer);
+    const slipPages = await mergedDoc.copyPages(slipDoc, slipDoc.getPageIndices());
+    slipPages.forEach((p) => mergedDoc.addPage(p));
+
+    // 3. Append each customer-uploaded PDF (skip non-PDF or failed fetches)
+    for (const item of order.items || []) {
+      const url = await resolveItemPdfUrl(item);
+      if (!url) continue;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) continue;
+        const buf = await response.arrayBuffer();
+        const customerDoc = await PDFDocument.load(buf, { ignoreEncryption: true });
+        const customerPages = await mergedDoc.copyPages(
+          customerDoc,
+          customerDoc.getPageIndices(),
+        );
+        customerPages.forEach((p) => mergedDoc.addPage(p));
+      } catch {
+        // Not a valid PDF (image, doc, etc.) — skip silently
+        continue;
+      }
+    }
+
+    const mergedBytes = await mergedDoc.save();
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=Order-${order.orderNumber}-Merged.pdf`,
+      "Content-Length": mergedBytes.length,
+    });
+    res.send(Buffer.from(mergedBytes));
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to generate merged PDF" });
   }
 };
 
