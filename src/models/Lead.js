@@ -17,6 +17,11 @@ const leadSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    companyName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     subject: {
       type: String,
       required: true,
@@ -28,7 +33,7 @@ const leadSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["new", "contacted", "qualified", "lost", "converted"],
+      enum: ["new", "read", "replied", "closed"],
       default: "new",
     },
     source: {

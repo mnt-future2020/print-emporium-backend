@@ -352,6 +352,14 @@ const resolveItemPdfUrl = async (item) => {
   return getUrlFromPublicId(key);
 };
 
+/**
+ * Create a blank page matching the dimensions of a reference page
+ */
+const createBlankPage = (mergedDoc, referencePage) => {
+  const { width, height } = referencePage.getSize();
+  return mergedDoc.addPage([width, height]);
+};
+
 export const downloadOrderFilesMerged = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -372,13 +380,22 @@ export const downloadOrderFilesMerged = async (req, res) => {
       marginMM: 10,
     });
 
-    // 2. Start a merged document with the order slip pages
-    const mergedDoc = await PDFDocument.create();
+    // 2. Load the order slip document
     const slipDoc = await PDFDocument.load(orderSlipBuffer);
-    const slipPages = await mergedDoc.copyPages(slipDoc, slipDoc.getPageIndices());
-    slipPages.forEach((p) => mergedDoc.addPage(p));
+    const slipPageIndices = slipDoc.getPageIndices();
+    
+    // 3. Start building the merged document
+    const mergedDoc = await PDFDocument.create();
 
-    // 3. Append each customer-uploaded PDF (skip non-PDF or failed fetches)
+    // 4. Add FIRST order slip page
+    const firstSlipPages = await mergedDoc.copyPages(slipDoc, [slipPageIndices[0]]);
+    const firstSlipPage = mergedDoc.addPage(firstSlipPages[0]);
+
+    // 5. Add FIRST blank page (separator after first order slip)
+    createBlankPage(mergedDoc, firstSlipPage);
+
+    // 6. Append each customer-uploaded PDF (preserve all pages in exact order)
+    let hasCustomerPdfs = false;
     for (const item of order.items || []) {
       const url = await resolveItemPdfUrl(item);
       if (!url) continue;
@@ -393,11 +410,20 @@ export const downloadOrderFilesMerged = async (req, res) => {
           customerDoc.getPageIndices(),
         );
         customerPages.forEach((p) => mergedDoc.addPage(p));
+        hasCustomerPdfs = true;
       } catch {
         // Not a valid PDF (image, doc, etc.) — skip silently
         continue;
       }
     }
+
+    // 7. Add SECOND blank page (separator before final order slip)
+    // Use the first slip page as reference for dimensions
+    createBlankPage(mergedDoc, firstSlipPage);
+
+    // 8. Add FINAL order slip page
+    const finalSlipPages = await mergedDoc.copyPages(slipDoc, [slipPageIndices[0]]);
+    mergedDoc.addPage(finalSlipPages[0]);
 
     const mergedBytes = await mergedDoc.save();
 
@@ -408,6 +434,7 @@ export const downloadOrderFilesMerged = async (req, res) => {
     });
     res.send(Buffer.from(mergedBytes));
   } catch (error) {
+    console.error("Error generating merged PDF:", error);
     res.status(500).json({ success: false, message: "Failed to generate merged PDF" });
   }
 };

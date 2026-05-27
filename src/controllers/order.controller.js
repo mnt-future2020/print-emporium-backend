@@ -983,7 +983,7 @@ export const downloadInvoice = async (req, res) => {
     }
 
     // Validate page size (defaults to "a4")
-    const allowedSizes = ["a4", "a5", "letter", "legal"];
+    const allowedSizes = ["a4", "a5"];
     const requestedSize = String(req.query.size || "a4").toLowerCase();
     const size = allowedSizes.includes(requestedSize) ? requestedSize : "a4";
 

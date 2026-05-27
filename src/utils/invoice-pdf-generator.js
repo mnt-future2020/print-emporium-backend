@@ -20,11 +20,39 @@ const PURPLE_BG = rgb(0.929, 0.914, 0.996);
 // Standard PDF page sizes (in points; 72pt = 1 inch)
 const PAGE_SIZES = {
   a4: { width: 595.28, height: 841.89, margin: 42.5 },     // 210 × 297 mm
-  a5: { width: 419.53, height: 595.28, margin: 28.35 },    // 148 × 210 mm
-  letter: { width: 612, height: 792, margin: 42.5 },       // 8.5 × 11 in
-  legal: { width: 612, height: 1008, margin: 42.5 },       // 8.5 × 14 in
+  a5: { width: 419.53, height: 595.28, margin: 15 },       // 148 × 210 mm (reduced margin for compact layout)
 };
 const DEFAULT_SIZE = "a4";
+
+// Size-specific scaling factors for A5 optimization
+const SIZE_SCALE = {
+  a4: {
+    headerFont: 20,
+    titleFont: 28,
+    sectionFont: 11,
+    bodyFont: 10,
+    smallFont: 9,
+    tinyFont: 8,
+    microFont: 7,
+    lineSpacing: 1.0,
+    sectionSpacing: 1.0,
+    logoMaxW: 200,
+    logoMaxH: 120,
+  },
+  a5: {
+    headerFont: 12,      // Reduced from 14
+    titleFont: 18,       // Reduced from 20
+    sectionFont: 8,      // Reduced from 9
+    bodyFont: 7,         // Reduced from 8
+    smallFont: 6.5,      // Reduced from 7
+    tinyFont: 6,         // Reduced from 6.5
+    microFont: 5,        // Reduced from 5.5
+    lineSpacing: 0.65,   // Tighter from 0.75
+    sectionSpacing: 0.5, // Tighter from 0.6
+    logoMaxW: 100,       // Reduced from 120
+    logoMaxH: 60,        // Reduced from 70
+  },
+};
 
 // ─── Sanitize for WinAnsi encoding ───
 const sanitize = (str) => String(str ?? "")
@@ -43,11 +71,12 @@ const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", {
 /**
  * Generate a professional invoice PDF in the requested page size.
  * @param {object} order - Order document
- * @param {string} [size="a4"] - Page size: "a4", "a5", "letter", "legal"
+ * @param {string} [size="a4"] - Page size: "a4" or "a5"
  */
 export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
-  const { width: PAGE_WIDTH, height: PAGE_HEIGHT, margin: MARGIN } =
-    PAGE_SIZES[size?.toLowerCase()] || PAGE_SIZES[DEFAULT_SIZE];
+  const sizeKey = size?.toLowerCase() === "a5" ? "a5" : "a4";
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT, margin: MARGIN } = PAGE_SIZES[sizeKey];
+  const scale = SIZE_SCALE[sizeKey];
 
   let settings = await GeneralSettings.findOne({ settingsId: "global" });
   if (!settings) {
@@ -99,9 +128,11 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
 
   const badge = (str, x, yy, bgColor, textColor, borderColor) => {
     const s = sanitize(str);
-    const w = fontBold.widthOfTextAtSize(s, 8) + 16;
-    box(x, yy - 4, w, 15, { fill: bgColor, border: borderColor, bw: 0.75 });
-    draw(str, x + 8, yy, { size: 8, bold: true, color: textColor });
+    const badgeFont = sizeKey === "a5" ? scale.tinyFont : 8;
+    const w = fontBold.widthOfTextAtSize(s, badgeFont) + (sizeKey === "a5" ? 12 : 16);
+    const h = sizeKey === "a5" ? 12 : 15;
+    box(x, yy - 4, w, h, { fill: bgColor, border: borderColor, bw: 0.75 });
+    draw(str, x + (sizeKey === "a5" ? 6 : 8), yy, { size: badgeFont, bold: true, color: textColor });
     return w;
   };
 
@@ -154,11 +185,11 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
         } else {
           embeddedImage = await pdfDoc.embedJpg(imageBytes);
         }
-        const logoMaxW = 200;
-        const logoMaxH = 120;
-        const scale = Math.min(logoMaxW / embeddedImage.width, logoMaxH / embeddedImage.height, 1);
-        const logoW = embeddedImage.width * scale;
-        const logoH = embeddedImage.height * scale;
+        const logoMaxW = scale.logoMaxW;
+        const logoMaxH = scale.logoMaxH;
+        const scaleRatio = Math.min(logoMaxW / embeddedImage.width, logoMaxH / embeddedImage.height, 1);
+        const logoW = embeddedImage.width * scaleRatio;
+        const logoH = embeddedImage.height * scaleRatio;
         page.drawImage(embeddedImage, { x: MARGIN, y: y - logoH + 8, width: logoW, height: logoH });
         y -= logoH + 4;
         logoEmbedded = true;
@@ -169,62 +200,63 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
   }
 
   if (!logoEmbedded) {
-    draw(settings.companyName, MARGIN, y, { size: 20, bold: true, color: PRIMARY });
-    y -= 18;
+    draw(settings.companyName, MARGIN, y, { size: scale.headerFont, bold: true, color: PRIMARY });
+    y -= scale.headerFont * scale.lineSpacing;
   }
 
   const headerMaxW = CW * 0.55; // leave room for INVOICE title on right
-  const addrHeaderLines = wrapText(settings.companyAddress || "", headerMaxW, { size: 9 });
+  const addrHeaderLines = wrapText(settings.companyAddress || "", headerMaxW, { size: scale.tinyFont });
   for (const line of addrHeaderLines) {
-    draw(line, MARGIN, y, { size: 9, color: GRAY });
-    y -= 13;
+    draw(line, MARGIN, y, { size: scale.tinyFont, color: GRAY });
+    y -= scale.tinyFont * 1.4 * scale.lineSpacing;
   }
-  draw(`Phone: ${settings.companyPhone || ""}`, MARGIN, y, { size: 9, color: GRAY });
-  y -= 13;
-  draw(`Email: ${settings.companyEmail || ""}`, MARGIN, y, { size: 9, color: GRAY });
+  draw(`Phone: ${settings.companyPhone || ""}`, MARGIN, y, { size: scale.tinyFont, color: GRAY });
+  y -= scale.tinyFont * 1.4 * scale.lineSpacing;
+  draw(`Email: ${settings.companyEmail || ""}`, MARGIN, y, { size: scale.tinyFont, color: GRAY });
   if (settings.gstNumber) {
-    y -= 13;
-    draw(`GST: ${settings.gstNumber}`, MARGIN, y, { size: 9, color: GRAY });
+    y -= scale.tinyFont * 1.4 * scale.lineSpacing;
+    draw(`GST: ${settings.gstNumber}`, MARGIN, y, { size: scale.tinyFont, color: GRAY });
   }
 
   // Invoice title & meta (right side)
   const topY = PAGE_HEIGHT - MARGIN;
-  drawRight("INVOICE", topY, { size: 28, bold: true, color: PRIMARY });
+  drawRight("INVOICE", topY, { size: scale.titleFont, bold: true, color: PRIMARY });
 
-  let metaY = topY - 36;
-  drawRight(`Invoice No: ${order.orderNumber}`, metaY, { size: 10, color: GRAY });
-  metaY -= 15;
-  drawRight(`Date: ${fmtDate(order.createdAt)}`, metaY, { size: 10, color: GRAY });
-  metaY -= 15;
+  let metaY = topY - scale.titleFont * 1.3;
+  drawRight(`Invoice No: ${order.orderNumber}`, metaY, { size: scale.bodyFont, color: GRAY });
+  metaY -= scale.bodyFont * 1.5 * scale.lineSpacing;
+  drawRight(`Date: ${fmtDate(order.createdAt)}`, metaY, { size: scale.bodyFont, color: GRAY });
+  metaY -= scale.bodyFont * 1.5 * scale.lineSpacing;
 
   // "Payment:" label + PAID badge (right-aligned)
   const paidText = "PAID";
-  const paidW = fontBold.widthOfTextAtSize(paidText, 8) + 16;
-  const payLabelW = fontBold.widthOfTextAtSize("Payment: ", 10);
+  const badgeFont = sizeKey === "a5" ? scale.tinyFont : 8;
+  const paidW = fontBold.widthOfTextAtSize(paidText, badgeFont) + (sizeKey === "a5" ? 12 : 16);
+  const payLabelW = fontBold.widthOfTextAtSize("Payment: ", scale.bodyFont);
   const paidX = PAGE_WIDTH - MARGIN - paidW;
-  draw("Payment:", paidX - payLabelW - 4, metaY, { size: 10, bold: true, color: DARK });
+  draw("Payment:", paidX - payLabelW - 4, metaY, { size: scale.bodyFont, bold: true, color: DARK });
   badge(paidText, paidX, metaY, GREEN_BG, GREEN, GREEN_BORDER);
 
   if (order.deliveryInfo?.scheduleDelivery && order.estimatedDelivery) {
-    metaY -= 18;
+    metaY -= 18 * scale.lineSpacing;
     const schedText = fmtDate(order.estimatedDelivery);
-    const schedW = fontBold.widthOfTextAtSize(sanitize(schedText), 8) + 16;
-    const schedLabelW = fontBold.widthOfTextAtSize("Scheduled: ", 10);
+    const schedW = fontBold.widthOfTextAtSize(sanitize(schedText), badgeFont) + (sizeKey === "a5" ? 12 : 16);
+    const schedLabelW = fontBold.widthOfTextAtSize("Scheduled: ", scale.bodyFont);
     const schedBadgeX = PAGE_WIDTH - MARGIN - schedW;
-    draw("Scheduled:", schedBadgeX - schedLabelW - 4, metaY, { size: 10, bold: true, color: DARK });
+    draw("Scheduled:", schedBadgeX - schedLabelW - 4, metaY, { size: scale.bodyFont, bold: true, color: DARK });
     badge(schedText, schedBadgeX, metaY, PURPLE_BG, PURPLE, PURPLE_BG);
   }
 
-  y -= 12;
+  y -= 12 * scale.sectionSpacing;
   // Blue accent line under header
   hLine(y, { t: 3, color: PRIMARY });
-  y -= 28;
+  y -= 28 * scale.sectionSpacing;
 
   // ════════════════════════════════════════════════
   //  CUSTOMER INFO - Two boxes side by side
   // ════════════════════════════════════════════════
-  const boxW = (CW - 18) / 2;
-  const boxInnerW = boxW - 28; // padding left 14 + right 14
+  const boxW = (CW - 18 * scale.sectionSpacing) / 2;
+  const boxInnerW = boxW - 28 * scale.sectionSpacing; // padding left 14 + right 14
 
   // Pre-calculate Deliver To address lines to determine box height
   const fullAddress = [
@@ -232,33 +264,33 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
     `${order.deliveryInfo?.city || ""}, ${order.deliveryInfo?.state || ""}`,
     order.deliveryInfo?.pincode || "",
   ].filter(Boolean).join(", ");
-  const addrLines = wrapText(fullAddress, boxInnerW, { size: 9 });
-  const boxH = Math.max(75, 32 + addrLines.length * 13 + 10);
+  const addrLines = wrapText(fullAddress, boxInnerW, { size: scale.tinyFont });
+  const boxH = Math.max(75 * scale.sectionSpacing, 32 * scale.sectionSpacing + addrLines.length * 13 * scale.lineSpacing + 10);
 
   // Bill To box
   box(MARGIN, y - boxH, boxW, boxH, { fill: BG_LIGHT });
   box(MARGIN, y - boxH, boxW, boxH, { border: BORDER, bw: 0.5 });
   page.drawRectangle({ x: MARGIN, y: y - boxH, width: 3, height: boxH, color: PRIMARY });
 
-  draw("BILL TO", MARGIN + 14, y - 16, { size: 9, bold: true, color: PRIMARY });
-  draw(order.deliveryInfo?.fullName || "N/A", MARGIN + 14, y - 32, { size: 11, bold: true, color: DARK });
-  draw(order.deliveryInfo?.email || "", MARGIN + 14, y - 46, { size: 9, color: GRAY });
-  draw(order.deliveryInfo?.phone || "", MARGIN + 14, y - 59, { size: 9, color: GRAY });
+  draw("BILL TO", MARGIN + 14, y - 16 * scale.sectionSpacing, { size: scale.tinyFont, bold: true, color: PRIMARY });
+  draw(order.deliveryInfo?.fullName || "N/A", MARGIN + 14, y - 32 * scale.sectionSpacing, { size: scale.sectionFont, bold: true, color: DARK });
+  draw(order.deliveryInfo?.email || "", MARGIN + 14, y - 46 * scale.sectionSpacing, { size: scale.tinyFont, color: GRAY });
+  draw(order.deliveryInfo?.phone || "", MARGIN + 14, y - 59 * scale.sectionSpacing, { size: scale.tinyFont, color: GRAY });
 
   // Deliver To box
-  const b2x = MARGIN + boxW + 18;
+  const b2x = MARGIN + boxW + 18 * scale.sectionSpacing;
   box(b2x, y - boxH, boxW, boxH, { fill: BG_LIGHT });
   box(b2x, y - boxH, boxW, boxH, { border: BORDER, bw: 0.5 });
   page.drawRectangle({ x: b2x, y: y - boxH, width: 3, height: boxH, color: PRIMARY });
 
-  draw("DELIVER TO", b2x + 14, y - 16, { size: 9, bold: true, color: PRIMARY });
-  let addrY = y - 32;
+  draw("DELIVER TO", b2x + 14, y - 16 * scale.sectionSpacing, { size: scale.tinyFont, bold: true, color: PRIMARY });
+  let addrY = y - 32 * scale.sectionSpacing;
   for (const line of addrLines) {
-    draw(line, b2x + 14, addrY, { size: 9, color: DARK });
-    addrY -= 13;
+    draw(line, b2x + 14, addrY, { size: scale.tinyFont, color: DARK });
+    addrY -= 13 * scale.lineSpacing;
   }
 
-  y -= boxH + 22;
+  y -= boxH + 22 * scale.sectionSpacing;
 
   // ════════════════════════════════════════════════
   //  ITEMS TABLE
@@ -272,12 +304,12 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
   const tableStartY = y;
 
   // Table header (deep blue background)
-  const thH = 24;
+  const thH = 24 * scale.sectionSpacing;
   box(MARGIN, y - thH, CW, thH, { fill: PRIMARY });
-  draw("ITEM DESCRIPTION", c1 + 10, y - 16, { size: 8, bold: true, color: WHITE });
-  draw("PAGES", c2 + 4, y - 16, { size: 8, bold: true, color: WHITE });
-  draw("COPIES", c3 + 2, y - 16, { size: 8, bold: true, color: WHITE });
-  draw("AMOUNT", c4 + 8, y - 16, { size: 8, bold: true, color: WHITE });
+  draw("ITEM DESCRIPTION", c1 + 10, y - 16 * scale.sectionSpacing, { size: scale.tinyFont, bold: true, color: WHITE });
+  draw("PAGES", c2 + 4, y - 16 * scale.sectionSpacing, { size: scale.tinyFont, bold: true, color: WHITE });
+  draw("COPIES", c3 + 2, y - 16 * scale.sectionSpacing, { size: scale.tinyFont, bold: true, color: WHITE });
+  draw("AMOUNT", c4 + 8, y - 16 * scale.sectionSpacing, { size: scale.tinyFont, bold: true, color: WHITE });
   y -= thH;
 
   // Table rows
@@ -296,7 +328,7 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
     if (pricing.printSidePrice > 0) lines.push({ l: "Print Side", r: `+${fmt(pricing.printSidePrice)}/${pricing.printSideIsPerCopy ? "copy" : "page"}` });
     if (pricing.bindingPrice > 0) lines.push({ l: "Binding", r: `+${fmt(pricing.bindingPrice)}/${pricing.bindingIsPerCopy !== false ? "copy" : "page"}` });
 
-    const rowH = 56 + lines.length * 12 + 14; // base + pricing lines + total line
+    const rowH = (56 + lines.length * 12 + 14) * scale.sectionSpacing; // base + pricing lines + total line
     ensureSpace(rowH + 5);
 
     // Alternating row background
@@ -304,49 +336,49 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
       box(MARGIN, y - rowH, CW, rowH, { fill: rgb(0.99, 0.99, 1) });
     }
 
-    let ry = y - 15;
+    let ry = y - 15 * scale.sectionSpacing;
 
     // Service name
-    draw(item.serviceName || "", c1 + 10, ry, { size: 11, bold: true, color: DARK });
-    ry -= 14;
+    draw(item.serviceName || "", c1 + 10, ry, { size: scale.sectionFont, bold: true, color: DARK });
+    ry -= 14 * scale.lineSpacing;
 
     // File name + page count
     const fileName = (item.fileName || "").length > 50 ? item.fileName.substring(0, 50) + "..." : item.fileName || "";
-    draw(`${fileName} (${item.pageCount} pages)`, c1 + 10, ry, { size: 8, color: GRAY });
-    ry -= 13;
+    draw(`${fileName} (${item.pageCount} pages)`, c1 + 10, ry, { size: scale.tinyFont, color: GRAY });
+    ry -= 13 * scale.lineSpacing;
 
     // Configuration summary (matching old design: bullet separator, always show GSM)
     const parts = [config.printType, config.paperSize, config.paperType, config.gsm ? `${config.gsm}GSM` : "", config.printSide];
     if (config.bindingOption && config.bindingOption !== "none") parts.push(config.bindingOption);
     const configStr = parts.filter(Boolean).join(" - ");
     const truncConfig = configStr.length > 75 ? configStr.substring(0, 75) + "..." : configStr;
-    draw(truncConfig, c1 + 10, ry, { size: 8, color: LIGHT_TEXT });
-    ry -= 16;
+    draw(truncConfig, c1 + 10, ry, { size: scale.tinyFont, color: LIGHT_TEXT });
+    ry -= 16 * scale.lineSpacing;
 
     // Pricing breakdown box with blue left accent
-    const pBoxH = lines.length * 12 + 18;
+    const pBoxH = (lines.length * 12 + 18) * scale.sectionSpacing;
     const pBoxW = CW * 0.52;
     box(c1 + 10, ry - pBoxH + 10, pBoxW, pBoxH, { fill: BG_LIGHT });
     page.drawRectangle({ x: c1 + 10, y: ry - pBoxH + 10, width: 2.5, height: pBoxH, color: PRIMARY });
 
     let py = ry;
     for (const { l, r } of lines) {
-      draw(l + ":", c1 + 18, py, { size: 8, color: GRAY });
-      draw(r, c1 + 18 + pBoxW - 70, py, { size: 8, color: GRAY });
-      py -= 12;
+      draw(l + ":", c1 + 18, py, { size: scale.tinyFont, color: GRAY });
+      draw(r, c1 + 18 + pBoxW - 70, py, { size: scale.tinyFont, color: GRAY });
+      py -= 12 * scale.lineSpacing;
     }
     // Total per page (bold, primary color)
     page.drawLine({ start: { x: c1 + 18, y: py + 8 }, end: { x: c1 + 10 + pBoxW - 8, y: py + 8 }, thickness: 0.5, color: BORDER });
-    draw("Total per Page:", c1 + 18, py - 2, { size: 8, bold: true, color: PRIMARY });
-    draw(fmt(pricing.pricePerPage), c1 + 18 + pBoxW - 70, py - 2, { size: 8, bold: true, color: PRIMARY });
+    draw("Total per Page:", c1 + 18, py - 2, { size: scale.tinyFont, bold: true, color: PRIMARY });
+    draw(fmt(pricing.pricePerPage), c1 + 18 + pBoxW - 70, py - 2, { size: scale.tinyFont, bold: true, color: PRIMARY });
 
     // Pages & Copies columns
-    draw(String(item.pageCount || ""), c2 + 12, y - 15, { size: 10, color: DARK });
-    draw(String(config.copies || 1), c3 + 12, y - 15, { size: 10, color: DARK });
+    draw(String(item.pageCount || ""), c2 + 12, y - 15 * scale.sectionSpacing, { size: scale.bodyFont, color: DARK });
+    draw(String(config.copies || 1), c3 + 12, y - 15 * scale.sectionSpacing, { size: scale.bodyFont, color: DARK });
 
     // Amount column
-    draw(fmt(pricing.subtotal), c4 + 8, y - 15, { size: 12, bold: true, color: PRIMARY });
-    draw(`${item.pageCount} x ${config.copies || 1} x ${fmt(pricing.pricePerPage)}`, c4 + 8, y - 30, { size: 7, color: LIGHT_TEXT });
+    draw(fmt(pricing.subtotal), c4 + 8, y - 15 * scale.sectionSpacing, { size: scale.sectionFont + 1, bold: true, color: PRIMARY });
+    draw(`${item.pageCount} x ${config.copies || 1} x ${fmt(pricing.pricePerPage)}`, c4 + 8, y - 30 * scale.sectionSpacing, { size: scale.microFont, color: LIGHT_TEXT });
 
     y -= rowH;
     hLine(y, { color: BORDER });
@@ -356,14 +388,14 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
   // Table outer border
   box(MARGIN, y, CW, tableStartY - y, { border: BORDER, bw: 1 });
 
-  y -= 18;
+  y -= 18 * scale.sectionSpacing;
 
   // ════════════════════════════════════════════════
   //  TOTALS SECTION (right-aligned box)
   // ════════════════════════════════════════════════
-  ensureSpace(130);
+  ensureSpace(130 * scale.sectionSpacing);
 
-  const totW = 230;
+  const totW = 230 * scale.sectionSpacing;
   const totX = PAGE_WIDTH - MARGIN - totW;
 
   // Calculate totals box height
@@ -372,7 +404,7 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
   if (order.pricing.packingCharge > 0) totLines++;
   if (order.pricing.discount > 0) totLines++;
   totLines++; // final total
-  const totH = totLines * 22 + 28;
+  const totH = totLines * 22 * scale.sectionSpacing + 28 * scale.sectionSpacing;
 
   // Background
   box(totX, y - totH, totW, totH, { fill: BG_LIGHT });
@@ -380,85 +412,89 @@ export const generateInvoicePDF = async (order, size = DEFAULT_SIZE) => {
   // Blue top accent
   page.drawRectangle({ x: totX, y: y, width: totW, height: 2, color: PRIMARY });
 
-  let ty = y - 20;
-  const tlx = totX + 16;
-  const trx = totX + totW - 16;
+  let ty = y - 20 * scale.sectionSpacing;
+  const tlx = totX + 16 * scale.sectionSpacing;
+  const trx = totX + totW - 16 * scale.sectionSpacing;
 
   // Subtotal
-  draw("Subtotal:", tlx, ty, { size: 11, bold: true, color: DARK });
+  draw("Subtotal:", tlx, ty, { size: scale.sectionFont, bold: true, color: DARK });
   const subStr = fmt(order.pricing.subtotal);
-  draw(subStr, trx - fontBold.widthOfTextAtSize(sanitize(subStr), 11), ty, { size: 11, bold: true, color: DARK });
-  ty -= 6;
+  draw(subStr, trx - fontBold.widthOfTextAtSize(sanitize(subStr), scale.sectionFont), ty, { size: scale.sectionFont, bold: true, color: DARK });
+  ty -= 6 * scale.sectionSpacing;
   page.drawLine({ start: { x: tlx, y: ty }, end: { x: trx, y: ty }, thickness: 0.5, color: BORDER });
-  ty -= 16;
+  ty -= 16 * scale.sectionSpacing;
 
   // Delivery
   if (order.pricing.deliveryCharge > 0) {
-    draw("Delivery:", tlx, ty, { size: 10, color: DARK });
+    draw("Delivery:", tlx, ty, { size: scale.bodyFont, color: DARK });
     const ds = fmt(order.pricing.deliveryCharge);
-    draw(ds, trx - fontBold.widthOfTextAtSize(sanitize(ds), 10), ty, { size: 10, bold: true, color: DARK });
-    ty -= 20;
+    draw(ds, trx - fontBold.widthOfTextAtSize(sanitize(ds), scale.bodyFont), ty, { size: scale.bodyFont, bold: true, color: DARK });
+    ty -= 20 * scale.sectionSpacing;
   }
 
   // Packing
   if (order.pricing.packingCharge > 0) {
-    draw("Packing:", tlx, ty, { size: 10, color: DARK });
+    draw("Packing:", tlx, ty, { size: scale.bodyFont, color: DARK });
     const ps = fmt(order.pricing.packingCharge);
-    draw(ps, trx - fontBold.widthOfTextAtSize(sanitize(ps), 10), ty, { size: 10, bold: true, color: DARK });
-    ty -= 20;
+    draw(ps, trx - fontBold.widthOfTextAtSize(sanitize(ps), scale.bodyFont), ty, { size: scale.bodyFont, bold: true, color: DARK });
+    ty -= 20 * scale.sectionSpacing;
   }
 
   // Discount
   if (order.pricing.discount > 0) {
     const couponLabel = `Discount (${order.pricing.couponCode || "Coupon"}):`;
-    draw(couponLabel, tlx, ty, { size: 10, bold: true, color: GREEN });
+    draw(couponLabel, tlx, ty, { size: scale.bodyFont, bold: true, color: GREEN });
     const ds = `-${fmt(order.pricing.discount)}`;
-    draw(ds, trx - fontBold.widthOfTextAtSize(sanitize(ds), 10), ty, { size: 10, bold: true, color: GREEN });
-    ty -= 20;
+    draw(ds, trx - fontBold.widthOfTextAtSize(sanitize(ds), scale.bodyFont), ty, { size: scale.bodyFont, bold: true, color: GREEN });
+    ty -= 20 * scale.sectionSpacing;
   }
 
   // Final total with blue accent line
   page.drawLine({ start: { x: tlx, y: ty + 8 }, end: { x: trx, y: ty + 8 }, thickness: 2, color: PRIMARY });
   ty -= 4;
-  draw("Total Amount:", tlx, ty, { size: 15, bold: true, color: PRIMARY });
+  const totalFontSize = sizeKey === "a5" ? scale.sectionFont + 2 : scale.sectionFont + 4;
+  const totalLabel = sizeKey === "a5" ? "Total:" : "Total Amount:";
+  draw(totalLabel, tlx, ty, { size: totalFontSize, bold: true, color: PRIMARY });
   const totalStr = fmt(order.pricing.total);
-  draw(totalStr, trx - fontBold.widthOfTextAtSize(sanitize(totalStr), 15), ty, { size: 15, bold: true, color: PRIMARY });
+  draw(totalStr, trx - fontBold.widthOfTextAtSize(sanitize(totalStr), totalFontSize), ty, { size: totalFontSize, bold: true, color: PRIMARY });
 
-  y -= totH + 25;
+  y -= totH + 25 * scale.sectionSpacing;
 
   // ════════════════════════════════════════════════
   //  FOOTER
   // ════════════════════════════════════════════════
-  ensureSpace(80);
+  const footerSpace = sizeKey === "a5" ? 60 : 80;
+  ensureSpace(footerSpace * scale.sectionSpacing);
   hLine(y, { color: BORDER });
-  y -= 20;
+  y -= (sizeKey === "a5" ? 15 : 20) * scale.sectionSpacing;
 
   // Terms & Conditions (left)
   if (settings.termsAndConditions) {
-    draw("TERMS & CONDITIONS", MARGIN, y, { size: 8, bold: true, color: PRIMARY });
-    y -= 13;
+    draw("TERMS & CONDITIONS", MARGIN, y, { size: scale.tinyFont, bold: true, color: PRIMARY });
+    y -= (sizeKey === "a5" ? 10 : 13) * scale.lineSpacing;
     const termsMaxW = CW / 2 - 20;
-    const termsLines = wrapText(settings.termsAndConditions, termsMaxW, { size: 8 });
-    for (let i = 0; i < Math.min(termsLines.length, 4); i++) {
-      draw(termsLines[i], MARGIN, y, { size: 8, color: GRAY });
-      y -= 11;
+    const termsLines = wrapText(settings.termsAndConditions, termsMaxW, { size: scale.tinyFont });
+    const maxLines = sizeKey === "a5" ? 3 : 4;
+    for (let i = 0; i < Math.min(termsLines.length, maxLines); i++) {
+      draw(termsLines[i], MARGIN, y, { size: scale.tinyFont, color: GRAY });
+      y -= (sizeKey === "a5" ? 9 : 11) * scale.lineSpacing;
     }
   }
 
   // Need Help (right)
   const helpX = MARGIN + CW / 2 + 10;
-  const helpY = y + (settings.termsAndConditions ? 35 : 0);
-  draw("NEED HELP?", helpX, helpY, { size: 8, bold: true, color: PRIMARY });
-  draw(`Contact us at ${settings.companyPhone || ""} or email`, helpX, helpY - 13, { size: 8, color: GRAY });
-  draw(`${settings.companyEmail || ""} for any queries or issues.`, helpX, helpY - 25, { size: 8, color: GRAY });
+  const helpY = y + (settings.termsAndConditions ? (sizeKey === "a5" ? 25 : 35) * scale.sectionSpacing : 0);
+  draw("NEED HELP?", helpX, helpY, { size: scale.tinyFont, bold: true, color: PRIMARY });
+  draw(`Contact us at ${settings.companyPhone || ""} or email`, helpX, helpY - (sizeKey === "a5" ? 10 : 13) * scale.lineSpacing, { size: scale.tinyFont, color: GRAY });
+  draw(`${settings.companyEmail || ""} for any queries or issues.`, helpX, helpY - (sizeKey === "a5" ? 20 : 25) * scale.lineSpacing, { size: scale.tinyFont, color: GRAY });
 
   // Copyright bar
-  y -= 8;
+  y -= (sizeKey === "a5" ? 6 : 8) * scale.sectionSpacing;
   hLine(y, { color: BORDER });
-  y -= 14;
+  y -= (sizeKey === "a5" ? 10 : 14) * scale.sectionSpacing;
   const copyText = sanitize(settings.footerNote || `(c) ${new Date().getFullYear()} ${settings.companyName}. All rights reserved.`);
-  const copyW = font.widthOfTextAtSize(copyText, 8);
-  draw(copyText, (PAGE_WIDTH - copyW) / 2, y, { size: 8, color: LIGHT_TEXT });
+  const copyW = font.widthOfTextAtSize(copyText, scale.tinyFont);
+  draw(copyText, (PAGE_WIDTH - copyW) / 2, y, { size: scale.tinyFont, color: LIGHT_TEXT });
 
   return Buffer.from(await pdfDoc.save());
 };
