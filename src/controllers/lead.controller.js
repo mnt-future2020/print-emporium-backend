@@ -7,12 +7,14 @@ import GeneralSettings from "../models/GeneralSettings.js";
  */
 export const createLead = async (req, res) => {
   try {
-    const { name, email, phone, companyName, subject, message, source } = req.body;
+    const { name, email, phone, companyName, subject, message, source } =
+      req.body;
 
     if (!name || !email || !subject || !message) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Please provide all required fields (name, email, subject, message)" 
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please provide all required fields (name, email, subject, message)",
       });
     }
 
@@ -29,7 +31,7 @@ export const createLead = async (req, res) => {
     await newLead.save();
 
     // Send email notification to admin (non-blocking)
-    sendAdminNotificationEmail(newLead).catch(error => {
+    sendAdminNotificationEmail(newLead).catch((error) => {
       console.error("Failed to send admin notification email:", error);
       // Don't throw error - email failure should not block lead creation
     });
@@ -41,10 +43,10 @@ export const createLead = async (req, res) => {
     });
   } catch (error) {
     console.error("Create lead error:", error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to process your request. Please try again later.",
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -57,7 +59,10 @@ async function sendAdminNotificationEmail(lead) {
     // Get company settings for admin email
     const settings = await GeneralSettings.findOne({ settingsId: "global" });
     const companyName = settings?.companyName || "The Print Emporium";
-    const adminEmail = settings?.companyEmail || process.env.ADMIN_EMAIL || process.env.SMTP_FROM_EMAIL;
+    const adminEmail =
+      settings?.companyEmail ||
+      process.env.ADMIN_EMAIL ||
+      process.env.SMTP_FROM_EMAIL;
 
     if (!adminEmail) {
       console.warn("No admin email configured for lead notifications");
@@ -65,7 +70,7 @@ async function sendAdminNotificationEmail(lead) {
     }
 
     const emailSubject = `🔔 New Contact Form Submission - ${lead.subject}`;
-    
+
     const emailHTML = `
       <!DOCTYPE html>
       <html lang="en">
@@ -116,7 +121,9 @@ async function sendAdminNotificationEmail(lead) {
                             <a href="mailto:${lead.email}" style="color: #0021a0; text-decoration: none; font-weight: 500;">${lead.email}</a>
                           </td>
                         </tr>
-                        ${lead.phone ? `
+                        ${
+                          lead.phone
+                            ? `
                         <tr>
                           <td style="padding: 10px 0; font-size: 14px; border-bottom: 1px solid rgba(0, 33, 160, 0.1);">
                             <span style="font-weight: 600; color: #666;">Phone Number</span>
@@ -125,8 +132,12 @@ async function sendAdminNotificationEmail(lead) {
                             <a href="tel:${lead.phone}" style="color: #0021a0; text-decoration: none; font-weight: 500;">${lead.phone}</a>
                           </td>
                         </tr>
-                        ` : ''}
-                        ${lead.companyName ? `
+                        `
+                            : ""
+                        }
+                        ${
+                          lead.companyName
+                            ? `
                         <tr>
                           <td style="padding: 10px 0; font-size: 14px; border-bottom: 1px solid rgba(0, 33, 160, 0.1);">
                             <span style="font-weight: 600; color: #666;">Company Name</span>
@@ -135,13 +146,15 @@ async function sendAdminNotificationEmail(lead) {
                             <span style="color: #1a1a1a; font-weight: 500;">${lead.companyName}</span>
                           </td>
                         </tr>
-                        ` : ''}
+                        `
+                            : ""
+                        }
                         <tr>
                           <td style="padding: 10px 0; font-size: 14px; border-bottom: 1px solid rgba(0, 33, 160, 0.1);">
                             <span style="font-weight: 600; color: #666;">Source</span>
                           </td>
                           <td style="padding: 10px 0; font-size: 14px; text-align: right; border-bottom: 1px solid rgba(0, 33, 160, 0.1);">
-                            <span style="color: #1a1a1a; font-weight: 500; text-transform: capitalize;">${lead.source.replace('_', ' ')}</span>
+                            <span style="color: #1a1a1a; font-weight: 500; text-transform: capitalize;">${lead.source.replace("_", " ")}</span>
                           </td>
                         </tr>
                         <tr>
@@ -149,12 +162,14 @@ async function sendAdminNotificationEmail(lead) {
                             <span style="font-weight: 600; color: #666;">Submission Time</span>
                           </td>
                           <td style="padding: 10px 0; font-size: 14px; text-align: right;">
-                            <span style="color: #1a1a1a; font-weight: 500;">${new Date(lead.createdAt).toLocaleString('en-IN', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
+                            <span style="color: #1a1a1a; font-weight: 500;">${new Date(
+                              lead.createdAt,
+                            ).toLocaleString("en-IN", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
                             })}</span>
                           </td>
                         </tr>
@@ -188,7 +203,7 @@ ${lead.message}
                           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                             <tr>
                               <td style="background: linear-gradient(135deg, #0021a0 0%, #0033cc 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 33, 160, 0.15);">
-                                <a href="${process.env.FRONTEND_URL || process.env.BETTER_AUTH_URL?.replace('/api/auth', '')}/dashboard?tab=leads" target="_blank" style="display: inline-block; color: #ffffff; padding: 14px 32px; text-decoration: none; font-weight: 600; font-size: 14px; letter-spacing: 0.3px;">
+                                <a href="${process.env.FRONTEND_URL || process.env.BETTER_AUTH_URL?.replace("/api/auth", "")}/dashboard?tab=leads" target="_blank" style="display: inline-block; color: #ffffff; padding: 14px 32px; text-decoration: none; font-weight: 600; font-size: 14px; letter-spacing: 0.3px;">
                                   View in Dashboard
                                 </a>
                               </td>
@@ -207,11 +222,15 @@ ${lead.message}
                         <a href="mailto:${lead.email}" style="display: inline-block; background: #f8f9fb; color: #0021a0; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; border: 1px solid #e8ecf1;">
                           📧 Reply via Email
                         </a>
-                        ${lead.phone ? `
+                        ${
+                          lead.phone
+                            ? `
                         <a href="tel:${lead.phone}" style="display: inline-block; background: #f8f9fb; color: #0021a0; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; border: 1px solid #e8ecf1;">
                           📞 Call Now
                         </a>
-                        ` : ''}
+                        `
+                            : ""
+                        }
                       </div>
                     </div>
                     
@@ -236,7 +255,6 @@ ${lead.message}
     `;
 
     await sendEmail(adminEmail, emailSubject, emailHTML);
-    console.log(`Admin notification email sent for lead ${lead._id}`);
   } catch (error) {
     console.error("Error sending admin notification email:", error);
     throw error;
@@ -249,7 +267,7 @@ ${lead.message}
 export const getAllLeads = async (req, res) => {
   try {
     const { status, page = 1, limit = 20, search } = req.query;
-    
+
     const query = {};
     if (status) query.status = status;
     if (search) {
@@ -279,10 +297,10 @@ export const getAllLeads = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to fetch leads",
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -297,7 +315,9 @@ export const updateLead = async (req, res) => {
 
     const lead = await Lead.findById(id);
     if (!lead) {
-      return res.status(404).json({ success: false, message: "Lead not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
     }
 
     if (status) lead.status = status;
@@ -312,10 +332,10 @@ export const updateLead = async (req, res) => {
       lead,
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to update lead",
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -327,9 +347,11 @@ export const deleteLead = async (req, res) => {
   try {
     const { id } = req.params;
     const lead = await Lead.findByIdAndDelete(id);
-    
+
     if (!lead) {
-      return res.status(404).json({ success: false, message: "Lead not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
     }
 
     res.json({
@@ -337,10 +359,10 @@ export const deleteLead = async (req, res) => {
       message: "Lead deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to delete lead",
-      details: error.message 
+      details: error.message,
     });
   }
 };

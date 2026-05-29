@@ -144,6 +144,7 @@ export const upsertService = async (req, res) => {
     const {
       id,
       name,
+      description,
       image,
       basePricePerPage,
       basePriceRanges,
@@ -176,6 +177,14 @@ export const upsertService = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Service name must be less than 100 characters",
+      });
+    }
+
+    // Validate description length (optional field)
+    if (typeof description === "string" && description.trim().length > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: "Description must be less than 1000 characters",
       });
     }
 
@@ -378,6 +387,7 @@ export const upsertService = async (req, res) => {
 
     const serviceData = {
       name,
+      description: typeof description === "string" ? description.trim() : "",
       basePricePerPage,
       basePriceRanges: hasRanges ? basePriceRanges : [],
       customQuotation,

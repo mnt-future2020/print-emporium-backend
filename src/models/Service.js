@@ -7,6 +7,11 @@ const serviceSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    description: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     image: {
       type: String, // Cloudinary Public ID
       trim: true,
