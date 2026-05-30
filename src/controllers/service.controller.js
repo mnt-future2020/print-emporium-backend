@@ -7,6 +7,16 @@ import {
   getPublicIdFromUrl,
 } from "../utils/cloudinary-helper.js";
 
+// Generate a URL-safe slug from a service name (matches Service model's slugify).
+const slugify = (str) =>
+  String(str || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
 // Admin selects WHICH binding options apply per-service (storing only the `value`).
 // Pricing is hydrated at read time from the global ServiceOption master collection
 // so any global edit (price change, range update, etc.) reflects instantly in every
@@ -387,6 +397,7 @@ export const upsertService = async (req, res) => {
 
     const serviceData = {
       name,
+      slug: slugify(name),
       description: typeof description === "string" ? description.trim() : "",
       basePricePerPage,
       basePriceRanges: hasRanges ? basePriceRanges : [],

@@ -7,6 +7,14 @@ const serviceSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    slug: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true,
+      unique: true,
+      sparse: true,
+    },
     description: {
       type: String,
       trim: true,
@@ -97,6 +105,23 @@ const serviceSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+// Auto-generate a URL-safe slug from the service name when missing or when name changes.
+const slugify = (str) =>
+  String(str || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "") // strip punctuation
+    .replace(/\s+/g, "-") // spaces → hyphens
+    .replace(/-+/g, "-") // collapse repeats
+    .replace(/^-|-$/g, ""); // trim hyphens
+
+serviceSchema.pre("save", function (next) {
+  if (this.isModified("name") || !this.slug) {
+    this.slug = slugify(this.name) || undefined;
+  }
+  next();
+});
 
 // Validation: Ensure only one pricing field is set for each option in arrays
 serviceSchema.pre("save", function (next) {
