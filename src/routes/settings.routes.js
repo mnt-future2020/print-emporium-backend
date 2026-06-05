@@ -15,6 +15,10 @@ import {
   getPaymentSettings,
   updatePaymentSettings,
 } from "../controllers/payment.controller.js";
+import {
+  getShiprocketSettings,
+  updateShiprocketSettings,
+} from "../controllers/shiprocket.controller.js";
 import { requireAdmin } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -32,6 +36,10 @@ router.post("/email-configuration/test", requireAdmin, testEmailConfiguration);
 // Razorpay settings routes
 router.get("/payment-gateway", requireAdmin, getPaymentSettings);
 router.put("/payment-gateway", requireAdmin, updatePaymentSettings);
+
+// Shiprocket settings routes
+router.get("/shiprocket", requireAdmin, getShiprocketSettings);
+router.put("/shiprocket", requireAdmin, updateShiprocketSettings);
 
 // Pricing settings routes (Delivery and Packing)
 router.get("/pricing", getPricingSettings);

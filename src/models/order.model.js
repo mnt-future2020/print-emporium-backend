@@ -142,6 +142,19 @@ const orderSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Shiprocket integration metadata — populated once an order is pushed.
+    shiprocket: {
+      orderId: { type: String, default: null }, // Shiprocket order_id
+      shipmentId: { type: String, default: null },
+      awbCode: { type: String, default: null },
+      courierId: { type: Number, default: null },
+      courierName: { type: String, default: null },
+      labelUrl: { type: String, default: null },
+      manifestUrl: { type: String, default: null },
+      lastStatus: { type: String, default: null },
+      lastStatusAt: { type: Date, default: null },
+      lastSyncedAt: { type: Date, default: null },
+    },
     invoiceEmailSent: {
       type: Boolean,
       default: false,
