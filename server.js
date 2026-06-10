@@ -24,6 +24,7 @@ import couponRoutes from "./src/routes/coupon.routes.js";
 import pdfRoutes from "./src/routes/pdf.routes.js";
 import pincodeRoutes from "./src/routes/pincode.routes.js";
 import shiprocketRoutes from "./src/routes/shiprocket.routes.js";
+import { handleWebhook as shiprocketWebhook } from "./src/controllers/shiprocket.controller.js";
 import { requireAdminOrSignedRequest } from "./src/middleware/signature.middleware.js";
 import { seedAdmin } from "./src/utils/seedAdmin.js";
 // import { seedOrders } from "./src/utils/seedOrders.js";
@@ -143,6 +144,9 @@ const startServer = async () => {
     app.use("/api/pdf", requireAdminOrSignedRequest, pdfRoutes); // PDF generation routes
     app.use("/api/pincode", pincodeRoutes); // Public pincode lookup (cached proxy)
     app.use("/api/shiprocket", shiprocketRoutes); // Shiprocket integration (serviceability, push, AWB, tracking, webhook)
+    // Shiprocket's dashboard rejects webhook URLs containing "shiprocket"/"sr"/"kr";
+    // expose the same handler at a keyword-free path to configure there.
+    app.post("/api/delivery-webhook", shiprocketWebhook);
 
     // Example of getting session in a custom route
     app.get("/api/me", async (req, res) => {

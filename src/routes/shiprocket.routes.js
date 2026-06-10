@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getServiceability,
+  getOrderCouriers,
   pushOrderToShiprocket,
   assignOrderAwb,
   schedulePickup,
@@ -26,6 +27,7 @@ router.get("/orders/:id/track", requireAuth, trackOrder);
 
 // Admin / employee actions
 router.post("/orders/:id/push", requireAdminOrEmployee, pushOrderToShiprocket);
+router.get("/orders/:id/couriers", requireAdminOrEmployee, getOrderCouriers);
 router.post("/orders/:id/awb", requireAdminOrEmployee, assignOrderAwb);
 router.post("/orders/:id/pickup", requireAdminOrEmployee, schedulePickup);
 router.get("/orders/:id/label", requireAdminOrEmployee, getLabel);

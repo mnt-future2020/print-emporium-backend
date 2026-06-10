@@ -21,6 +21,12 @@ const shiprocketSettingsSchema = new mongoose.Schema(
       default: "Primary",
       trim: true,
     },
+    // Required by the serviceability API to look up couriers/rates for an order.
+    pickupPincode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     // Encrypted — used to authenticate the inbound webhook
     webhookToken: {
       type: String,

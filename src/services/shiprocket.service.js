@@ -59,6 +59,7 @@ const loadConfig = async () => {
     email: settings.email,
     password: decryptPassword(settings.password),
     pickupLocation: settings.pickupLocation || "Primary",
+    pickupPincode: settings.pickupPincode || "",
     webhookToken: settings.webhookToken ? decryptPassword(settings.webhookToken) : null,
   };
   return cachedConfig;

@@ -184,8 +184,16 @@ export const assignOrderAwb = async (req, res) => {
     let courierName = null;
 
     if (!courierId) {
+      const srConfig = await getResolvedConfig();
+      if (!srConfig?.pickupPincode) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Set the pickup pincode in Settings → Shiprocket to look up couriers.",
+        });
+      }
       const couriers = await checkServiceability({
-        pickupPincode: undefined, // SR uses pickup_location from the order
+        pickupPincode: srConfig.pickupPincode,
         deliveryPincode: order.deliveryInfo?.pincode,
         weightKg: totalWeightKg(order),
       });
@@ -219,6 +227,55 @@ export const assignOrderAwb = async (req, res) => {
     return res.json({ success: true, shiprocket: order.shiprocket, raw: result });
   } catch (e) {
     return handleErr(res, e, "Failed to assign AWB");
+  }
+};
+
+/**
+ * GET /api/shiprocket/orders/:id/couriers
+ * Returns the serviceable couriers for an order so the admin can pick one
+ * (sorted cheapest-first) instead of always auto-assigning the cheapest.
+ */
+export const getOrderCouriers = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await Order.findById(id);
+    if (!order)
+      return res.status(404).json({ success: false, message: "Order not found" });
+
+    const srConfig = await getResolvedConfig();
+    if (!srConfig?.pickupPincode) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Set the pickup pincode in Settings → Shiprocket to look up couriers.",
+      });
+    }
+    const deliveryPincode = order.deliveryInfo?.pincode;
+    if (!deliveryPincode) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Order has no delivery pincode" });
+    }
+
+    const weightKg = totalWeightKg(order);
+    const couriers = (
+      await checkServiceability({
+        pickupPincode: srConfig.pickupPincode,
+        deliveryPincode,
+        weightKg,
+        codAmount: order.paymentStatus === "paid" ? 0 : order.pricing?.total || 0,
+      })
+    )
+      .slice()
+      .sort((a, b) => (a.rate || 0) - (b.rate || 0));
+
+    return res.json({
+      success: true,
+      context: { deliveryPincode, weightKg, orderValue: order.pricing?.total || 0 },
+      couriers,
+    });
+  } catch (e) {
+    return handleErr(res, e, "Failed to load couriers");
   }
 };
 
@@ -306,7 +363,10 @@ export const handleWebhook = async (req, res) => {
   try {
     const srConfig = await getResolvedConfig();
     const expected = srConfig?.webhookToken;
-    const provided = req.query.token || req.headers["x-webhook-token"];
+    const provided =
+      req.query.token ||
+      req.headers["x-api-key"] ||
+      req.headers["x-webhook-token"];
     if (!expected || provided !== expected) {
       return res.status(401).json({ success: false, message: "Invalid webhook token" });
     }
@@ -333,10 +393,20 @@ export const handleWebhook = async (req, res) => {
     order.shiprocket.lastStatusAt = new Date();
     order.shiprocket.lastSyncedAt = new Date();
 
-    // Bridge to our own order.status when meaningful
+    // Bridge to our own order.status when meaningful.
     const s = (status || "").toLowerCase();
-    if (s.includes("delivered")) order.status = "delivered";
-    else if (s.includes("shipped") || s.includes("in transit") || s.includes("out for delivery")) {
+    // "undelivered"/"rto"/"return" contain "delivered" but are NOT a successful
+    // delivery — check them before the broad "delivered" match.
+    if (s.includes("undelivered") || s.includes("rto") || s.includes("return")) {
+      order.status = "shipped";
+    } else if (s.includes("delivered")) order.status = "delivered";
+    else if (
+      s.includes("shipped") ||
+      s.includes("in transit") ||
+      s.includes("out for delivery") ||
+      s.includes("picked") ||
+      s.includes("pickup")
+    ) {
       order.status = "shipped";
     } else if (s.includes("cancelled")) order.status = "cancelled";
 
@@ -369,6 +439,7 @@ export const getShiprocketSettings = async (req, res) => {
           email: "",
           password: "",
           pickupLocation: "Primary",
+          pickupPincode: "",
           webhookToken: "",
         },
       });
@@ -380,6 +451,7 @@ export const getShiprocketSettings = async (req, res) => {
         email: config.email || "",
         password: config.password ? MASK : "",
         pickupLocation: config.pickupLocation || "Primary",
+        pickupPincode: config.pickupPincode || "",
         webhookToken: config.webhookToken ? MASK : "",
       },
     });
@@ -399,6 +471,7 @@ export const updateShiprocketSettings = async (req, res) => {
       email,
       password,
       pickupLocation,
+      pickupPincode,
       webhookToken,
     } = req.body || {};
 
@@ -458,6 +531,7 @@ export const updateShiprocketSettings = async (req, res) => {
         email,
         password: passwordToSave,
         pickupLocation: pickupLocation || "Primary",
+        pickupPincode: pickupPincode || "",
         webhookToken: webhookTokenToSave,
       },
       { upsert: true, new: true },
@@ -473,6 +547,7 @@ export const updateShiprocketSettings = async (req, res) => {
         email: updated.email,
         password: updated.password ? MASK : "",
         pickupLocation: updated.pickupLocation,
+        pickupPincode: updated.pickupPincode || "",
         webhookToken: updated.webhookToken ? MASK : "",
       },
     });
