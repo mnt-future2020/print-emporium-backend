@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import Order from "../models/order.model.js";
 import GeneralSettings from "../models/GeneralSettings.js";
 import ShiprocketSettings from "../models/ShiprocketSettings.js";
@@ -364,10 +365,15 @@ export const handleWebhook = async (req, res) => {
     const srConfig = await getResolvedConfig();
     const expected = srConfig?.webhookToken;
     const provided =
-      req.query.token ||
       req.headers["x-api-key"] ||
-      req.headers["x-webhook-token"];
-    if (!expected || provided !== expected) {
+      req.headers["x-webhook-token"] ||
+      req.query.token;
+    if (!expected || !provided) {
+      return res.status(401).json({ success: false, message: "Invalid webhook token" });
+    }
+    const a = Buffer.from(String(provided));
+    const b = Buffer.from(String(expected));
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       return res.status(401).json({ success: false, message: "Invalid webhook token" });
     }
 
