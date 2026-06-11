@@ -143,7 +143,7 @@ const startServer = async () => {
     app.use("/api/coupons", couponRoutes); // Coupon management routes
     app.use("/api/pdf", requireAdminOrSignedRequest, pdfRoutes); // PDF generation routes
     app.use("/api/pincode", pincodeRoutes); // Public pincode lookup (cached proxy)
-    app.use("/api/shiprocket", shiprocketRoutes); // Shiprocket integration (serviceability, push, AWB, tracking, webhook)
+    app.use("/api/shipping", shiprocketRoutes); // Shiprocket integration (serviceability, push, AWB, tracking, webhook)
     // Shiprocket's dashboard rejects webhook URLs containing "shiprocket"/"sr"/"kr";
     // expose the same handler at a keyword-free path to configure there.
     app.post("/api/delivery-webhook", shiprocketWebhook);

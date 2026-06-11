@@ -99,7 +99,7 @@ const buildOrderPayload = async (order) => {
 // ──────────────────────────────────────────────────────────────
 
 /**
- * GET /api/shiprocket/serviceability?pickup=600001&delivery=625001&weight=0.5
+ * GET /api/shipping/serviceability?pickup=600001&delivery=625001&weight=0.5
  * Public endpoint customers can call from the checkout page.
  */
 export const getServiceability = async (req, res) => {
@@ -133,7 +133,7 @@ export const getServiceability = async (req, res) => {
 };
 
 /**
- * POST /api/shiprocket/orders/:id/push
+ * POST /api/shipping/orders/:id/push
  * Admin: push a confirmed order to Shiprocket and persist IDs.
  */
 export const pushOrderToShiprocket = async (req, res) => {
@@ -167,7 +167,7 @@ export const pushOrderToShiprocket = async (req, res) => {
 };
 
 /**
- * POST /api/shiprocket/orders/:id/awb
+ * POST /api/shipping/orders/:id/awb
  * Body: { courierId? } — if omitted, picks the cheapest serviceable courier.
  */
 export const assignOrderAwb = async (req, res) => {
@@ -232,7 +232,7 @@ export const assignOrderAwb = async (req, res) => {
 };
 
 /**
- * GET /api/shiprocket/orders/:id/couriers
+ * GET /api/shipping/orders/:id/couriers
  * Returns the serviceable couriers for an order so the admin can pick one
  * (sorted cheapest-first) instead of always auto-assigning the cheapest.
  */
@@ -281,7 +281,7 @@ export const getOrderCouriers = async (req, res) => {
 };
 
 /**
- * POST /api/shiprocket/orders/:id/pickup
+ * POST /api/shipping/orders/:id/pickup
  */
 export const schedulePickup = async (req, res) => {
   try {
@@ -300,7 +300,7 @@ export const schedulePickup = async (req, res) => {
 };
 
 /**
- * GET /api/shiprocket/orders/:id/track
+ * GET /api/shipping/orders/:id/track
  * Customer + admin can call this to fetch live tracking.
  */
 export const trackOrder = async (req, res) => {
@@ -331,7 +331,7 @@ export const trackOrder = async (req, res) => {
 };
 
 /**
- * GET /api/shiprocket/orders/:id/label
+ * GET /api/shipping/orders/:id/label
  */
 export const getLabel = async (req, res) => {
   try {
@@ -355,7 +355,7 @@ export const getLabel = async (req, res) => {
 };
 
 /**
- * POST /api/shiprocket/webhook
+ * POST /api/shipping/webhook
  * Configure this URL in the Shiprocket dashboard. Token-protected via
  * `?token=...` query string (matched against the webhookToken saved in
  * Settings → Shiprocket).
