@@ -240,4 +240,22 @@ export const generateInvoice = async ({ orderIds }) =>
     body: { ids: orderIds },
   });
 
+/**
+ * Fetch all pickup locations configured in the Shiprocket account.
+ * Returns array of { id, pickup_location (nickname), pin_code, city, state, ... }.
+ */
+export const getPickupLocations = async () => {
+  const data = await request("/settings/company/pickup");
+  const addresses = data?.data?.shipping_address || [];
+  return addresses.map((a) => ({
+    id: a.id,
+    nickname: a.pickup_location,
+    pincode: String(a.pin_code),
+    address: a.address,
+    city: a.city,
+    state: a.state,
+    phone: a.phone,
+  }));
+};
+
 export { ShiprocketError };

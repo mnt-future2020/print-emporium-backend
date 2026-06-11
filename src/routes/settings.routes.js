@@ -18,6 +18,7 @@ import {
 import {
   getShiprocketSettings,
   updateShiprocketSettings,
+  getPickupLocations,
 } from "../controllers/shiprocket.controller.js";
 import { requireAdmin } from "../middleware/auth.middleware.js";
 
@@ -40,6 +41,7 @@ router.put("/payment-gateway", requireAdmin, updatePaymentSettings);
 // Shiprocket settings routes
 router.get("/shiprocket", requireAdmin, getShiprocketSettings);
 router.put("/shiprocket", requireAdmin, updateShiprocketSettings);
+router.get("/shiprocket/pickup-locations", requireAdmin, getPickupLocations);
 
 // Pricing settings routes (Delivery and Packing)
 router.get("/pricing", getPricingSettings);

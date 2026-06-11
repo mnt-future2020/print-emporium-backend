@@ -13,6 +13,7 @@ import {
   getResolvedConfig,
   invalidateConfigCache,
   verifyCredentials,
+  getPickupLocations as srGetPickupLocations,
   ShiprocketError,
 } from "../services/shiprocket.service.js";
 
@@ -429,6 +430,19 @@ export const handleWebhook = async (req, res) => {
 // ──────────────────────────────────────────────────────────────
 
 const MASK = "********";
+
+/**
+ * GET /api/settings/shiprocket/pickup-locations
+ * Fetches pickup addresses from the Shiprocket account for the settings dropdown.
+ */
+export const getPickupLocations = async (req, res) => {
+  try {
+    const locations = await srGetPickupLocations();
+    return res.json({ success: true, locations });
+  } catch (e) {
+    return handleErr(res, e, "Failed to fetch pickup locations");
+  }
+};
 
 /**
  * GET /api/settings/shiprocket
