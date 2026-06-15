@@ -201,7 +201,12 @@ export const checkServiceability = async ({
       cod: codAmount > 0 ? 1 : 0,
     },
   });
-  return data?.data?.available_courier_companies || [];
+  const couriers = data?.data?.available_courier_companies || [];
+  const recommendedId =
+    data?.data?.recommended_courier_company_id ||
+    data?.data?.shiprocket_recommended_courier_id ||
+    null;
+  return { couriers, recommendedId };
 };
 
 export const createOrder = async (payload) => {

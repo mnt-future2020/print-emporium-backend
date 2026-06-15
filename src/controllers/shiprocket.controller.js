@@ -111,7 +111,7 @@ export const getServiceability = async (req, res) => {
         .status(400)
         .json({ success: false, message: "pickup and delivery pincodes are required" });
     }
-    const couriers = await checkServiceability({
+    const { couriers, recommendedId } = await checkServiceability({
       pickupPincode: pickup,
       deliveryPincode: delivery,
       weightKg: Number(weight) || 0.5,
@@ -126,6 +126,7 @@ export const getServiceability = async (req, res) => {
       cheapestRate: cheapest?.rate || null,
       cheapestCourier: cheapest?.courier_name || null,
       etd: cheapest?.etd || null,
+      recommendedId,
       couriers,
     });
   } catch (e) {
@@ -194,7 +195,7 @@ export const assignOrderAwb = async (req, res) => {
             "Set the pickup pincode in Settings → Shiprocket to look up couriers.",
         });
       }
-      const couriers = await checkServiceability({
+      const { couriers } = await checkServiceability({
         pickupPincode: srConfig.pickupPincode,
         deliveryPincode: order.deliveryInfo?.pincode,
         weightKg: totalWeightKg(order),
@@ -260,20 +261,20 @@ export const getOrderCouriers = async (req, res) => {
     }
 
     const weightKg = totalWeightKg(order);
-    const couriers = (
-      await checkServiceability({
-        pickupPincode: srConfig.pickupPincode,
-        deliveryPincode,
-        weightKg,
-        codAmount: order.paymentStatus === "paid" ? 0 : order.pricing?.total || 0,
-      })
-    )
+    const result = await checkServiceability({
+      pickupPincode: srConfig.pickupPincode,
+      deliveryPincode,
+      weightKg,
+      codAmount: order.paymentStatus === "paid" ? 0 : order.pricing?.total || 0,
+    });
+    const couriers = result.couriers
       .slice()
       .sort((a, b) => (a.rate || 0) - (b.rate || 0));
 
     return res.json({
       success: true,
       context: { deliveryPincode, weightKg, orderValue: order.pricing?.total || 0 },
+      recommendedId: result.recommendedId,
       couriers,
     });
   } catch (e) {
