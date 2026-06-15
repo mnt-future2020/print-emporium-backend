@@ -201,11 +201,24 @@ export const checkServiceability = async ({
       cod: codAmount > 0 ? 1 : 0,
     },
   });
-  const couriers = data?.data?.available_courier_companies || [];
+  const raw = data?.data?.available_courier_companies || [];
   const recommendedId =
     data?.data?.recommended_courier_company_id ||
     data?.data?.shiprocket_recommended_courier_id ||
     null;
+
+  const couriers = raw.map((c) => {
+    // Sum every field ending in _charge or _charges to compute the real total
+    let totalCharges = 0;
+    for (const [key, val] of Object.entries(c)) {
+      if ((key.endsWith("_charge") || key.endsWith("_charges")) && key !== "rto_charges") {
+        const n = Number(val);
+        if (n > 0) totalCharges += n;
+      }
+    }
+    return { ...c, total_charges: totalCharges || c.rate };
+  });
+
   return { couriers, recommendedId };
 };
 
