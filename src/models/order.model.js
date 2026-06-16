@@ -22,6 +22,10 @@ const orderItemSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  weightPer100Sheets: {
+    type: Number,
+    default: 500,
+  },
   filePublicId: {
     type: String,
     default: null,

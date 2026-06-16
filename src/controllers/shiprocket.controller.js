@@ -33,14 +33,13 @@ const handleErr = (res, error, fallback = "Shiprocket request failed") => {
 };
 
 const totalWeightKg = (order) => {
-  // 1 sheet of standard paper ≈ 5 g. Use a conservative floor.
-  const sheets = (order.items || []).reduce((sum, item) => {
+  const grams = (order.items || []).reduce((sum, item) => {
     const pages = Number(item.pageCount || item.pricing?.totalPages || 0);
     const copies = Number(item.configuration?.copies || 1);
-    return sum + pages * copies;
+    const per100 = Number(item.weightPer100Sheets) || 500;
+    return sum + (pages * copies * per100) / 100;
   }, 0);
-  const grams = Math.max(100, sheets * 5);
-  return Number((grams / 1000).toFixed(2));
+  return Number((Math.max(100, grams) / 1000).toFixed(2));
 };
 
 const buildOrderPayload = async (order) => {

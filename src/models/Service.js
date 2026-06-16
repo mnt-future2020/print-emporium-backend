@@ -35,6 +35,11 @@ const serviceSchema = new mongoose.Schema(
         price: { type: Number },
       },
     ],
+    weightPer100Sheets: {
+      type: Number,
+      default: 500,
+      min: 1,
+    },
     customQuotation: {
       type: Boolean,
       default: false,
