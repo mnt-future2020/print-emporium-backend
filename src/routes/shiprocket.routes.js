@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getServiceability,
+  getCheckoutRate,
   getOrderCouriers,
   pushOrderToShiprocket,
   assignOrderAwb,
@@ -21,6 +22,7 @@ router.post("/webhook", handleWebhook);
 
 // Public — used by the checkout page to show rate/ETD for a pincode
 router.get("/serviceability", getServiceability);
+router.post("/checkout-rate", getCheckoutRate);
 
 // Customer + admin tracking
 router.get("/orders/:id/track", requireAuth, trackOrder);

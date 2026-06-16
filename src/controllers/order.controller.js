@@ -202,8 +202,10 @@ export const createOrder = async (req, res) => {
 
     // Look up weightPerSheet for each service
     const serviceIds = [...new Set(items.map((i) => i.serviceId).filter(Boolean))];
-    const services = await Service.find({ _id: { $in: serviceIds } }).select("_id weightPer100Sheets").lean();
-    const weightMap = Object.fromEntries(services.map((s) => [String(s._id), s.weightPer100Sheets || 500]));
+    const services = await Service.find({ _id: { $in: serviceIds } }).select("_id weightSampleSheets weightSampleGrams").lean();
+    const weightMap = Object.fromEntries(
+      services.map((s) => [String(s._id), { sheets: s.weightSampleSheets || 100, grams: s.weightSampleGrams || 500 }]),
+    );
 
     // Create the order
     const order = new Order({
@@ -215,7 +217,8 @@ export const createOrder = async (req, res) => {
         fileName: item.file.name,
         fileSize: item.file.size,
         pageCount: item.file.pageCount,
-        weightPer100Sheets: weightMap[item.serviceId] || 500,
+        weightSampleSheets: weightMap[item.serviceId]?.sheets || 100,
+        weightSampleGrams: weightMap[item.serviceId]?.grams || 500,
         filePublicId: item.file.filePublicId || null, // Original file public_id
         pdfPublicId: item.file.pdfPublicId || null, // PDF file public_id
         configuration: {

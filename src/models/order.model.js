@@ -22,7 +22,11 @@ const orderItemSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  weightPer100Sheets: {
+  weightSampleSheets: {
+    type: Number,
+    default: 100,
+  },
+  weightSampleGrams: {
     type: Number,
     default: 500,
   },

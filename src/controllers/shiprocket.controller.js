@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import Order from "../models/order.model.js";
+import Service from "../models/Service.js";
 import GeneralSettings from "../models/GeneralSettings.js";
 import ShiprocketSettings from "../models/ShiprocketSettings.js";
 import { encryptPassword, decryptPassword } from "../utils/encryption.js";
@@ -36,8 +37,10 @@ const totalWeightKg = (order) => {
   const grams = (order.items || []).reduce((sum, item) => {
     const pages = Number(item.pageCount || item.pricing?.totalPages || 0);
     const copies = Number(item.configuration?.copies || 1);
-    const per100 = Number(item.weightPer100Sheets) || 500;
-    return sum + (pages * copies * per100) / 100;
+    const sampleSheets = Number(item.weightSampleSheets) || 100;
+    const sampleGrams = Number(item.weightSampleGrams) || 500;
+    const gramsPerSheet = sampleGrams / sampleSheets;
+    return sum + pages * copies * gramsPerSheet;
   }, 0);
   return Number((Math.max(100, grams) / 1000).toFixed(2));
 };
@@ -130,6 +133,92 @@ export const getServiceability = async (req, res) => {
     });
   } catch (e) {
     return handleErr(res, e, "Failed to check serviceability");
+  }
+};
+
+/**
+ * POST /api/shipping/checkout-rate
+ * Public — called during checkout to get the cheapest shipping rate.
+ * Body: { deliveryPincode, items: [{ serviceId, pageCount, copies }] }
+ */
+export const getCheckoutRate = async (req, res) => {
+  const fallback = { success: true, serviceable: false, deliveryCharge: 0, courierName: null, etd: null, fallback: true };
+  try {
+    const { deliveryPincode, items } = req.body || {};
+    if (!deliveryPincode || !/^\d{6}$/.test(String(deliveryPincode)) || !Array.isArray(items) || items.length === 0) {
+      return res.json(fallback);
+    }
+
+    const srConfig = await getResolvedConfig();
+    if (!srConfig?.pickupPincode) return res.json(fallback);
+
+    // Look up weight info for each service
+    const serviceIds = [...new Set(items.map((i) => i.serviceId).filter(Boolean))];
+    const services = await Service.find({ _id: { $in: serviceIds } })
+      .select("_id weightSampleSheets weightSampleGrams")
+      .lean();
+    const weightMap = Object.fromEntries(
+      services.map((s) => [String(s._id), { sheets: s.weightSampleSheets || 100, grams: s.weightSampleGrams || 500 }]),
+    );
+
+    // Calculate total weight
+    const grams = items.reduce((sum, item) => {
+      const w = weightMap[item.serviceId] || { sheets: 100, grams: 500 };
+      const pages = Number(item.pageCount) || 0;
+      const copies = Number(item.copies) || 1;
+      return sum + (pages * copies * w.grams) / w.sheets;
+    }, 0);
+    const weightKg = Number((Math.max(100, grams) / 1000).toFixed(2));
+
+    const { couriers } = await checkServiceability({
+      pickupPincode: srConfig.pickupPincode,
+      deliveryPincode: String(deliveryPincode),
+      weightKg,
+    });
+
+    if (!couriers || couriers.length === 0) {
+      return res.json({ ...fallback, serviceable: false });
+    }
+
+    // Sum all charge fields for the real total (same logic as service layer)
+    const withTotal = couriers.map((c) => {
+      let total = 0;
+      for (const [key, val] of Object.entries(c)) {
+        if ((key.endsWith("_charge") || key.endsWith("_charges")) && key !== "rto_charges" && key !== "total_charges") {
+          const n = Number(val);
+          if (n > 0) total += n;
+        }
+      }
+      return { ...c, _total: total || c.rate };
+    });
+
+    const byCost = [...withTotal].sort((a, b) => a._total - b._total);
+    const bySpeed = [...withTotal].sort((a, b) => {
+      const daysA = Number(a.estimated_delivery_days) || 99;
+      const daysB = Number(b.estimated_delivery_days) || 99;
+      return daysA - daysB || a._total - b._total;
+    });
+
+    const recommended = byCost[0];
+    const fastest = bySpeed[0];
+
+    const fmt = (c) => ({
+      rate: c._total,
+      courierName: c.courier_name || null,
+      etd: c.etd || null,
+      estimatedDays: c.estimated_delivery_days || null,
+      courierId: c.courier_company_id,
+    });
+
+    return res.json({
+      success: true,
+      serviceable: true,
+      fallback: false,
+      recommended: fmt(recommended),
+      fastest: fastest.courier_company_id !== recommended.courier_company_id ? fmt(fastest) : null,
+    });
+  } catch (e) {
+    return res.json(fallback);
   }
 };
 

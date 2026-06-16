@@ -35,7 +35,12 @@ const serviceSchema = new mongoose.Schema(
         price: { type: Number },
       },
     ],
-    weightPer100Sheets: {
+    weightSampleSheets: {
+      type: Number,
+      default: 100,
+      min: 1,
+    },
+    weightSampleGrams: {
       type: Number,
       default: 500,
       min: 1,
