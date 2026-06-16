@@ -258,6 +258,24 @@ export const generateInvoice = async ({ orderIds }) =>
     body: { ids: orderIds },
   });
 
+export const cancelShiprocketOrder = async ({ orderIds }) =>
+  request("/orders/cancel", {
+    method: "POST",
+    body: { ids: orderIds },
+  });
+
+export const generateManifest = async ({ shipmentIds }) =>
+  request("/manifests/generate", {
+    method: "POST",
+    body: { shipment_id: shipmentIds },
+  });
+
+export const getManifest = async ({ orderId }) =>
+  request("/manifests/print", {
+    method: "POST",
+    body: { order_ids: [orderId] },
+  });
+
 /**
  * Fetch all pickup locations configured in the Shiprocket account.
  * Returns array of { id, pickup_location (nickname), pin_code, city, state, ... }.

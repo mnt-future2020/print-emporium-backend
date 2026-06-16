@@ -8,6 +8,9 @@ import {
   schedulePickup,
   trackOrder,
   getLabel,
+  getShiprocketInvoice,
+  cancelOrder,
+  getManifest,
   handleWebhook,
 } from "../controllers/shiprocket.controller.js";
 import {
@@ -33,5 +36,8 @@ router.get("/orders/:id/couriers", requireAdminOrEmployee, getOrderCouriers);
 router.post("/orders/:id/awb", requireAdminOrEmployee, assignOrderAwb);
 router.post("/orders/:id/pickup", requireAdminOrEmployee, schedulePickup);
 router.get("/orders/:id/label", requireAdminOrEmployee, getLabel);
+router.get("/orders/:id/sr-invoice", requireAdminOrEmployee, getShiprocketInvoice);
+router.post("/orders/:id/cancel-shipment", requireAdminOrEmployee, cancelOrder);
+router.post("/orders/:id/manifest", requireAdminOrEmployee, getManifest);
 
 export default router;

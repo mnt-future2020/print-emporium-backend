@@ -15,6 +15,10 @@ import {
   invalidateConfigCache,
   verifyCredentials,
   getPickupLocations as srGetPickupLocations,
+  generateInvoice as srGenerateInvoice,
+  cancelShiprocketOrder as srCancelOrder,
+  generateManifest as srGenerateManifest,
+  getManifest as srGetManifest,
   ShiprocketError,
 } from "../services/shiprocket.service.js";
 
@@ -441,6 +445,69 @@ export const getLabel = async (req, res) => {
     return res.json({ success: true, labelUrl: url, raw: result });
   } catch (e) {
     return handleErr(res, e, "Failed to generate label");
+  }
+};
+
+/**
+ * GET /api/shipping/orders/:id/invoice
+ */
+export const getShiprocketInvoice = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order?.shiprocket?.orderId) {
+      return res.status(400).json({ success: false, message: "Order has no Shiprocket order" });
+    }
+    const result = await srGenerateInvoice({ orderIds: [Number(order.shiprocket.orderId)] });
+    const url = result?.invoice_url || result?.is_invoice_created;
+    return res.json({ success: true, invoiceUrl: url || null, raw: result });
+  } catch (e) {
+    return handleErr(res, e, "Failed to generate Shiprocket invoice");
+  }
+};
+
+/**
+ * POST /api/shipping/orders/:id/cancel
+ */
+export const cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order?.shiprocket?.orderId) {
+      return res.status(400).json({ success: false, message: "Order has no Shiprocket order" });
+    }
+    const result = await srCancelOrder({ orderIds: [Number(order.shiprocket.orderId)] });
+
+    order.shiprocket.lastStatus = "Cancelled";
+    order.shiprocket.lastStatusAt = new Date();
+    order.shiprocket.lastSyncedAt = new Date();
+    await order.save();
+
+    return res.json({ success: true, raw: result });
+  } catch (e) {
+    return handleErr(res, e, "Failed to cancel Shiprocket order");
+  }
+};
+
+/**
+ * POST /api/shipping/orders/:id/manifest
+ */
+export const getManifest = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order?.shiprocket?.shipmentId) {
+      return res.status(400).json({ success: false, message: "Order has no shipment" });
+    }
+
+    await srGenerateManifest({ shipmentIds: [Number(order.shiprocket.shipmentId)] });
+    const result = await srGetManifest({ orderId: Number(order.shiprocket.orderId) });
+    const url = result?.manifest_url;
+
+    if (url) {
+      order.shiprocket.manifestUrl = url;
+      await order.save();
+    }
+    return res.json({ success: true, manifestUrl: url || null, raw: result });
+  } catch (e) {
+    return handleErr(res, e, "Failed to generate manifest");
   }
 };
 
