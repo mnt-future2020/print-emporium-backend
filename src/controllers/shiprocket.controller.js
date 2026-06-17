@@ -307,10 +307,19 @@ export const assignOrderAwb = async (req, res) => {
       courierId,
     });
 
+    // Check if AWB assignment actually succeeded
+    if (result?.awb_assign_status === 0 || (!result?.response?.data?.awb_code && !result?.awb_code)) {
+      const errMsg =
+        result?.response?.data?.awb_assign_error ||
+        result?.message ||
+        "AWB assignment failed";
+      return res.status(400).json({ success: false, message: errMsg });
+    }
+
     const awb = result?.response?.data?.awb_code || result?.awb_code;
     order.shiprocket = {
       ...order.shiprocket.toObject(),
-      awbCode: awb || order.shiprocket.awbCode,
+      awbCode: awb,
       courierId,
       courierName:
         result?.response?.data?.courier_name || courierName || order.shiprocket.courierName,
