@@ -148,7 +148,7 @@ export const getServiceability = async (req, res) => {
 export const getCheckoutRate = async (req, res) => {
   const fallback = { success: true, serviceable: false, deliveryCharge: 0, courierName: null, etd: null, fallback: true };
   try {
-    const { deliveryPincode, items } = req.body || {};
+    const { deliveryPincode, items, orderValue } = req.body || {};
     if (!deliveryPincode || !/^\d{6}$/.test(String(deliveryPincode)) || !Array.isArray(items) || items.length === 0) {
       return res.json(fallback);
     }
@@ -178,6 +178,7 @@ export const getCheckoutRate = async (req, res) => {
       pickupPincode: srConfig.pickupPincode,
       deliveryPincode: String(deliveryPincode),
       weightKg,
+      declaredValue: Math.round(Number(orderValue) || 0),
     });
 
     if (!couriers || couriers.length === 0) {
@@ -367,6 +368,7 @@ export const getOrderCouriers = async (req, res) => {
       deliveryPincode,
       weightKg,
       codAmount: order.paymentStatus === "paid" ? 0 : order.pricing?.total || 0,
+      declaredValue: Math.round(order.pricing?.total || 0),
     });
     const couriers = result.couriers
       .slice()

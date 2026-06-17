@@ -191,15 +191,19 @@ export const checkServiceability = async ({
   deliveryPincode,
   weightKg,
   codAmount = 0,
+  declaredValue = 0,
 }) => {
+  const query = {
+    pickup_postcode: pickupPincode,
+    delivery_postcode: deliveryPincode,
+    weight: weightKg,
+    cod: codAmount > 0 ? 1 : 0,
+  };
+  if (declaredValue > 0) query.declared_value = declaredValue;
+
   const data = await request("/courier/serviceability/", {
     method: "GET",
-    query: {
-      pickup_postcode: pickupPincode,
-      delivery_postcode: deliveryPincode,
-      weight: weightKg,
-      cod: codAmount > 0 ? 1 : 0,
-    },
+    query,
   });
   const raw = data?.data?.available_courier_companies || [];
   const recommendedId =
