@@ -422,6 +422,13 @@ export const trackOrder = async (req, res) => {
     const { id } = req.params;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    // Authorization: customers can only track their own orders
+    const isAdminOrEmployee = req.user?.role === "admin" || req.user?.role === "employee";
+    if (!isAdminOrEmployee && String(order.userId) !== String(req.user?.id)) {
+      return res.status(403).json({ success: false, message: "Not authorized to track this order" });
+    }
+
     const awb = order.shiprocket?.awbCode || order.trackingNumber;
     if (!awb) {
       return res
