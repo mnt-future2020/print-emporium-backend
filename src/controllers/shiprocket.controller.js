@@ -236,7 +236,7 @@ export const pushOrderToShiprocket = async (req, res) => {
     const { id } = req.params;
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
-    if (order.shiprocket?.orderId) {
+    if (order.shiprocket?.orderId && order.shiprocket?.orderId !== "undefined") {
       return res.status(409).json({
         success: false,
         message: "Order already pushed to Shiprocket",
@@ -247,10 +247,19 @@ export const pushOrderToShiprocket = async (req, res) => {
     const payload = await buildOrderPayload(order);
     const result = await srCreateOrder(payload);
 
+    const orderId = result?.order_id || result?.data?.order_id || result?.response?.data?.order_id;
+    const shipmentId = result?.shipment_id || result?.data?.shipment_id || result?.response?.data?.shipment_id;
+
+    if (!orderId || !shipmentId) {
+      return res.status(400).json({ success: false, message: "Failed to parse order or shipment ID from Shiprocket response", raw: result });
+    }
+
+    const shiprocketData = order.shiprocket?.toObject ? order.shiprocket.toObject() : (order.shiprocket || {});
+
     order.shiprocket = {
-      ...order.shiprocket?.toObject?.(),
-      orderId: String(result.order_id),
-      shipmentId: String(result.shipment_id),
+      ...shiprocketData,
+      orderId: String(orderId),
+      shipmentId: String(shipmentId),
       lastSyncedAt: new Date(),
     };
     await order.save();
